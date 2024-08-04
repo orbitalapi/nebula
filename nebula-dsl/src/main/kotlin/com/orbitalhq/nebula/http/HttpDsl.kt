@@ -11,6 +11,14 @@ interface HttpDsl : InfraDsl {
         builder.dsl()
         return this.add(HttpExecutor(builder.build()))
     }
+
+    companion object {
+        val defaultImports: List<String> = listOf(
+            "io.ktor.server.request.*",
+            "io.ktor.server.response.*"
+        )
+    }
+
 }
 
 data class Route(
@@ -22,26 +30,28 @@ data class Route(
 
 class HttpApiBuilder(private val port: Int = 0) {
     private val routes = mutableListOf<Route>()
-    private fun addRoute(method: HttpMethod, path: String,
-                         handler: suspend PipelineContext<Unit, ApplicationCall>.(ApplicationCall) -> Unit
+    private fun addRoute(
+        method: HttpMethod, path: String,
+        handler: suspend PipelineContext<Unit, ApplicationCall>.(ApplicationCall) -> Unit
     ) {
         routes.add(Route(method, path, handler))
     }
 
-    fun get(path: String, handler:suspend PipelineContext<Unit, ApplicationCall>.(ApplicationCall) -> Unit
+    fun get(
+        path: String, handler: suspend PipelineContext<Unit, ApplicationCall>.(ApplicationCall) -> Unit
     ) {
         addRoute(HttpMethod.Get, path, handler)
     }
 
-    fun post(path: String, handler:suspend PipelineContext<Unit, ApplicationCall>.(ApplicationCall) -> Unit) {
+    fun post(path: String, handler: suspend PipelineContext<Unit, ApplicationCall>.(ApplicationCall) -> Unit) {
         addRoute(HttpMethod.Post, path, handler)
     }
 
-    fun put(path: String, handler:suspend PipelineContext<Unit, ApplicationCall>.(ApplicationCall) -> Unit) {
+    fun put(path: String, handler: suspend PipelineContext<Unit, ApplicationCall>.(ApplicationCall) -> Unit) {
         addRoute(HttpMethod.Put, path, handler)
     }
 
-    fun delete(path: String, handler:suspend PipelineContext<Unit, ApplicationCall>.(ApplicationCall) -> Unit) {
+    fun delete(path: String, handler: suspend PipelineContext<Unit, ApplicationCall>.(ApplicationCall) -> Unit) {
         addRoute(HttpMethod.Delete, path, handler)
     }
 

@@ -1,14 +1,13 @@
 package com.orbitalhq.nebula.sql
 
 import com.orbitalhq.nebula.InfrastructureExecutor
-import com.orbitalhq.nebula.services
+import com.orbitalhq.nebula.stack
 import com.orbitalhq.nebula.start
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import org.jooq.DSLContext
 import java.math.BigDecimal
-import java.sql.Timestamp
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.util.*
@@ -20,13 +19,13 @@ class SqlExecutorTest : DescribeSpec({
 
     describe("PostgreSQL database") {
         afterTest {
-            infra.shutDown()
+            infra.shutDownAll()
         }
 
         it("should create tables and insert data with various types") {
             val now = Instant.now()
 
-            infra = services {
+            infra = stack {
                 postgres {
                     table(
                         "users", """
@@ -85,7 +84,7 @@ class SqlExecutorTest : DescribeSpec({
             }.start()
 
             // Set up jOOQ DSL context
-            dsl = infra.database.dsl
+            dsl = infra.database.single().dsl
 
             // Test users table
             val users = dsl.selectFrom("users").fetch()

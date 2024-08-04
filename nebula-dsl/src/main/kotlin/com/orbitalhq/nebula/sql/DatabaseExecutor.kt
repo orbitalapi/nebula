@@ -9,7 +9,7 @@ import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.testcontainers.containers.JdbcDatabaseContainer
 
-val InfrastructureExecutor.database: DatabaseExecutor
+val InfrastructureExecutor.database: List<DatabaseExecutor>
     get() = this.component<DatabaseExecutor>()
 
 class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureComponent {

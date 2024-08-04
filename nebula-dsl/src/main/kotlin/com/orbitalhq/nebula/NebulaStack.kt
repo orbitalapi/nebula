@@ -4,8 +4,9 @@ import com.orbitalhq.nebula.http.HttpDsl
 import com.orbitalhq.nebula.kafka.KafkaDsl
 import com.orbitalhq.nebula.s3.S3Dsl
 import com.orbitalhq.nebula.sql.SqlDsl
+import com.orbitalhq.nebula.utils.NameGenerator
 
-open class ServicesSpec() : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl {
+class NebulaStack(val name: String = NameGenerator.generateName()) : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl {
 
     private val _components = mutableListOf<InfrastructureComponent>()
 
@@ -21,6 +22,6 @@ open class ServicesSpec() : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl {
         }
 }
 
-fun services(init: ServicesSpec.() -> Unit): ServicesSpec {
-    return ServicesSpec().apply(init)
+fun stack(init: NebulaStack.() -> Unit): NebulaStack {
+    return NebulaStack().apply(init)
 }

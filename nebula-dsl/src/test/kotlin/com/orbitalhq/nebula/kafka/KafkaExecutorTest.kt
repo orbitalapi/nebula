@@ -4,7 +4,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.orbitalhq.nebula.InfrastructureExecutor
 import com.orbitalhq.nebula.start
-import com.orbitalhq.nebula.services
+import com.orbitalhq.nebula.stack
 import com.orbitalhq.nebula.utils.duration
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.maps.shouldContainKeys
@@ -22,11 +22,11 @@ class KafkaExecutorTest : DescribeSpec({
     describe("Kafka broker") {
 
         afterTest {
-            infra?.shutDown()
+            infra?.shutDownAll()
         }
 
         it("should build a kafka broker that emits a message every 100ms") {
-            infra = services {
+            infra = stack {
                 kafka {
                     producer("100ms".duration(), "stockQuotes") {
                         jsonMessage {
@@ -39,7 +39,7 @@ class KafkaExecutorTest : DescribeSpec({
                 }
             }.start()
 
-            val consumer = createKafkaConsumer(infra.kafka.bootstrapServers, topic = "stockQuotes")
+            val consumer = createKafkaConsumer(infra.kafka.single().bootstrapServers, topic = "stockQuotes")
             consumer.receive()
                 .take(2)
                 .test()

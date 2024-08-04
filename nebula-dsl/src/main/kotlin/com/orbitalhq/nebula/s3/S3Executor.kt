@@ -14,7 +14,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import java.nio.file.Paths
 
-val InfrastructureExecutor.s3: S3Executor
+val InfrastructureExecutor.s3: List<S3Executor>
     get() {
         return this.component<S3Executor>()
     }

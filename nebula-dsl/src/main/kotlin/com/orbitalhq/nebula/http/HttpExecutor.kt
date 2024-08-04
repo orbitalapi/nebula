@@ -12,7 +12,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.net.ServerSocket
 
-val InfrastructureExecutor.http: HttpExecutor
+val InfrastructureExecutor.http: List<HttpExecutor>
     get() {
         return this.component<HttpExecutor>()
     }

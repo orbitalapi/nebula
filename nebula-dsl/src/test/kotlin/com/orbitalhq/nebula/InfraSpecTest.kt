@@ -8,7 +8,7 @@ import kotlin.random.Random
 class InfraSpecTest : DescribeSpec({
     describe("InfraSpec") {
         it("should build components") {
-            val spec = services {
+            val spec = stack {
                 kafka {
                     producer("100ms".duration(), "stockQuotes") {
                         message {

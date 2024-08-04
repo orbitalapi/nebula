@@ -10,9 +10,6 @@
     </parent>
 
     <artifactId>nebula-dsl</artifactId>
-    <properties>
-        <ktor.version>2.3.12</ktor.version>
-    </properties>
 
     <dependencies>
         <dependency>

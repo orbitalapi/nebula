@@ -1,5 +1,6 @@
 package com.orbitalhq.nebula
 
+import com.orbitalhq.nebula.http.HttpDsl
 import kotlin.script.experimental.annotations.KotlinScript
 import kotlin.script.experimental.api.ScriptCompilationConfiguration
 import kotlin.script.experimental.api.baseClass
@@ -15,12 +16,20 @@ import kotlin.script.experimental.jvm.jvm
 )
 abstract class NebulaScript
 
+val systemDefaultImports = setOf(
+    "com.orbitalhq.nebula.services",
+    "kotlin.random.Random"
+)
+
+val allDefaultImports = listOf(
+    systemDefaultImports,
+    HttpDsl.defaultImports
+).flatten()
+
 object NebulaCompilationConfiguration : ScriptCompilationConfiguration({
     jvm {
         dependenciesFromCurrentContext(wholeClasspath = true)
     }
-    defaultImports(
-        "com.orbitalhq.nebula.services",
-        "kotlin.random.Random"
-    )
+    defaultImports(allDefaultImports)
+
 })

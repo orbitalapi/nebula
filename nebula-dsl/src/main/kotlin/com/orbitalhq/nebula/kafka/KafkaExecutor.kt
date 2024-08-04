@@ -20,7 +20,7 @@ import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.utility.DockerImageName
 import java.util.*
 
-val InfrastructureExecutor.kafka: KafkaExecutor
+val InfrastructureExecutor.kafka: List<KafkaExecutor>
     get() {
         return this.component<KafkaExecutor>()
     }
