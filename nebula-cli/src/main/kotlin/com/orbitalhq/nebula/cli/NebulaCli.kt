@@ -1,46 +1,63 @@
 package com.orbitalhq.nebula.cli
 
-import com.github.ajalt.clikt.core.CliktCommand
-import com.github.ajalt.clikt.parameters.arguments.argument
-import com.github.ajalt.clikt.parameters.types.file
-import com.orbitalhq.nebula.ServicesSpec
+import picocli.CommandLine
+import picocli.CommandLine.Command
+import picocli.CommandLine.Option
+import picocli.CommandLine.Parameters
+import com.orbitalhq.nebula.NebulaStack
 import com.orbitalhq.nebula.start
 import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
+import picocli.CommandLine.ParameterException
+import java.io.File
 import java.lang.Thread.sleep
 import kotlin.script.experimental.api.ResultValue
-import kotlin.system.exitProcess
+import java.util.concurrent.Callable
 
-class Nebula : CliktCommand() {
-    private val scriptFile by argument(help = "The script file to execute").file(
-        mustExist = true,
-        canBeFile = true,
-        mustBeReadable = true
-    )
+@Command(
+    name = "nebula",
+    mixinStandardHelpOptions = true,
+    version = ["Nebula 1.0"],
+    description = ["Executes a Nebula script and manages services."]
+)
+class Nebula : Callable<Int> {
 
-    override fun run() {
+    @CommandLine.Spec
+    private lateinit var spec: CommandLine.Model.CommandSpec
+
+    @Parameters(index = "0", description = ["The script file to execute"])
+    private lateinit var scriptFile: File
+
+    @Option(names = ["-v", "--verbose"], description = ["Enable verbose output"])
+    private var verbose: Boolean = false
+
+
+    override fun call(): Int {
+        if (!scriptFile.exists() || !scriptFile.isFile || !scriptFile.canRead()) {
+            throw ParameterException(spec.commandLine(),  "${scriptFile.toPath()} not found or cannot be read")
+        }
+
         val scriptRunner = NebulaScriptExecutor()
         val result = scriptRunner.runScript(scriptFile)
         val services = when (val returnValue = result.returnValue) {
-            is ResultValue.Value -> returnValue.value as ServicesSpec
+            is ResultValue.Value -> returnValue.value as NebulaStack
             else -> {
-                echo("The script failed: ${returnValue::class.simpleName}", err = true)
-                exitProcess(1)
+                spec.commandLine().err.println("The script failed: ${returnValue::class.simpleName}")
+                return 1
             }
         }
         val infraExecutor = services.start()
-        // Setup a shutdown hook for graceful shutdown
+
         Runtime.getRuntime().addShutdownHook(Thread {
-            println("Shutting down services...")
-            infraExecutor.shutDown()
-            println("Services shut down gracefully.")
+            if (verbose) spec.commandLine().out.println("Shutting down services...")
+            infraExecutor.shutDownAll()
+            if (verbose) spec.commandLine().out.println("Services shut down gracefully.")
         })
 
-        echo("${services.components.size} services running - Press Ctrl+C to stop")
+        spec.commandLine().out.println("${services.components.size} services running - Press Ctrl+C to stop")
         while (true) {
             sleep(200)
         }
     }
-
 }
 
-fun main(args: Array<String>) = Nebula().main(args)
+fun main(args: Array<String>): Unit = System.exit(CommandLine(Nebula()).execute(*args))
