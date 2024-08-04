@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module external.linked.project.id=":build-logic:test" external.linked.project.path="$MODULE_DIR$/../../../build-logic" external.root.project.path="$MODULE_DIR$/../../.." external.system.id="GRADLE" external.system.module.group="" external.system.module.type="sourceSet" external.system.module.version="unspecified" type="JAVA_MODULE" version="4">
+  <component name="FacetManager">
+    <facet external-system-id="GRADLE" type="kotlin-language" name="Kotlin">
+      <configuration version="5" platform="JVM 21" allPlatforms="JVM [21]" useProjectSettings="false">
+        <additionalVisibleModuleNames>:build-logic:main</additionalVisibleModuleNames>
+        <compilerSettings>
+          <option name="additionalArguments" value="-java-parameters -Xjsr305=strict -Xsam-conversions=class -XXLanguage:+DisableCompatibilityModeForNewInference -XXLanguage:-TypeEnhancementImprovementsInStrictMode" />
+        </compilerSettings>
+        <compilerArguments>
+          <flagArguments>
+            <flagArg name="allowNoSourceFiles" arg="true" />
+            <flagArg name="noReflect" arg="true" />
+            <flagArg name="noStdlib" arg="true" />
+          </flagArguments>
+          <stringArguments>
+            <stringArg name="destination" arg="$MODULE_DIR$/../../../build-logic/build/classes/kotlin/test" />
+            <stringArg name="jvmDefault" arg="all" />
+            <stringArg name="jvmTarget" arg="21" />
+            <stringArg name="moduleName" arg="build-logic_test" />
+            <stringArg name="apiVersion" arg="1.8" />
+            <stringArg name="languageVersion" arg="1.8" />
+          </stringArguments>
+          <arrayArguments>
+            <arrayArg name="pluginClasspaths">
+              <args>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/gradle-kotlin-dsl-8.9.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/gradle-kotlin-dsl-shared-runtime-8.9.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/gradle-kotlin-dsl-tooling-models-8.9.jar</arg>
+                <arg>$USER_HOME$/.gradle/caches/8.9/generated-gradle-jars/gradle-api-8.9.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-3.0.21.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-ant-3.0.21.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-astbuilder-3.0.21.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-console-3.0.21.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-datetime-3.0.21.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-dateutil-3.0.21.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-groovydoc-3.0.21.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-json-3.0.21.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-nio-3.0.21.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-sql-3.0.21.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-templates-3.0.21.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-test-3.0.21.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-xml-3.0.21.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/javaparser-core-3.17.0.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/kotlin-reflect-1.9.23.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/kotlin-stdlib-1.9.23.jar</arg>
+                <arg>$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/gradle-installation-beacon-8.9.jar</arg>
+                <arg>$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-scripting-jvm/1.9.23/12296ecbca7fc45d259e04cf8080bae89ca18a45/kotlin-scripting-jvm-1.9.23.jar</arg>
+                <arg>$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-scripting-common/1.9.23/962df7abf28182fc9af5cddfa721766d9c3fe828/kotlin-scripting-common-1.9.23.jar</arg>
+                <arg>$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/1.9.23/dbaadea1f5e68f790d242a91a38355a83ec38747/kotlin-stdlib-1.9.23.jar</arg>
+                <arg>$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/13.0/919f0dfe192fb4e063e7dacadee7f8bb9a2672a9/annotations-13.0.jar</arg>
+                <arg>$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-script-runtime/1.9.23/1375a7343d05891119fac57f8b50a7578420ac27/kotlin-script-runtime-1.9.23.jar</arg>
+                <arg>$USER_HOME$/.cache/JetBrains/IntelliJIdea2024.1/kotlin-dist-for-ide/1.9.23/lib/assignment-compiler-plugin.jar</arg>
+                <arg>$USER_HOME$/.cache/JetBrains/IntelliJIdea2024.1/kotlin-dist-for-ide/1.9.23/lib/sam-with-receiver-compiler-plugin.jar</arg>
+              </args>
+            </arrayArg>
+            <arrayArg name="pluginOptions">
+              <args>
+                <arg>plugin:org.jetbrains.kotlin.assignment:annotation=org.gradle.api.SupportsKotlinAssignmentOverloading</arg>
+                <arg>plugin:org.jetbrains.kotlin.samWithReceiver:annotation=org.gradle.api.HasImplicitReceiver</arg>
+              </args>
+            </arrayArg>
+          </arrayArguments>
+        </compilerArguments>
+      </configuration>
+    </facet>
+  </component>
+  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_21">
+    <output-test url="file://$MODULE_DIR$/../../../build-logic/build/classes/java/test" />
+    <exclude-output />
+    <content url="file://$MODULE_DIR$/../../../build-logic/src/test" />
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module" module-name="build-logic.main" />
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.gradle/caches/8.9/generated-gradle-jars/gradle-api-8.9.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-3.0.21.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-ant-3.0.21.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-astbuilder-3.0.21.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-console-3.0.21.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-datetime-3.0.21.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-dateutil-3.0.21.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-groovydoc-3.0.21.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-json-3.0.21.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-nio-3.0.21.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-sql-3.0.21.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-templates-3.0.21.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-test-3.0.21.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/groovy-xml-3.0.21.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/javaparser-core-3.17.0.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/kotlin-reflect-1.9.23.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/kotlin-stdlib-1.9.23.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/gradle-installation-beacon-8.9.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/gradle-kotlin-dsl-extensions-8.9.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/gradle-kotlin-dsl-8.9.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/gradle-kotlin-dsl-shared-runtime-8.9.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.sdkman/candidates/gradle/8.9/lib/gradle-kotlin-dsl-tooling-models-8.9.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.gradle/caches/8.9/generated-gradle-jars/gradle-test-kit-8.9.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="library" name="Gradle: org.jetbrains.kotlin:kotlin-reflect:1.9.23" level="project" />
+    <orderEntry type="library" name="Gradle: org.jetbrains.kotlin:kotlin-stdlib:1.9.23" level="project" />
+    <orderEntry type="library" name="Gradle: org.jetbrains:annotations:13.0" level="project" />
+    <orderEntry type="module-library" scope="RUNTIME">
+      <library>
+        <CLASSES>
+          <root url="file://$MODULE_DIR$/../../../build-logic/build/pluginUnderTestMetadata" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+  </component>
+  <component name="TestModuleProperties" production-module="build-logic.main" />
+</module>

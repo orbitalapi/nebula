@@ -1,18 +1,15 @@
 package com.orbitalhq.nebula.http
 
-import com.orbitalhq.nebula.ContainerInfo
 import com.orbitalhq.nebula.InfrastructureComponent
-import com.orbitalhq.nebula.InfrastructureExecutor
-import com.orbitalhq.nebula.NetworkInfo
+import com.orbitalhq.nebula.StackRunner
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.net.ServerSocket
 
-val InfrastructureExecutor.http: List<HttpExecutor>
+val StackRunner.http: List<HttpExecutor>
     get() {
         return this.component<HttpExecutor>()
     }

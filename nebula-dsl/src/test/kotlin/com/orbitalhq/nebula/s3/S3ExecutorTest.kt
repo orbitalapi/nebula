@@ -1,6 +1,6 @@
 package com.orbitalhq.nebula.s3
 
-import com.orbitalhq.nebula.InfrastructureExecutor
+import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.stack
 import com.orbitalhq.nebula.start
 import io.kotest.core.spec.style.DescribeSpec
@@ -8,7 +8,7 @@ import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 
 class S3ExecutorTest : DescribeSpec({
-    lateinit var infra: InfrastructureExecutor
+    lateinit var infra: StackRunner
     describe("Test S3Executor") {
         afterTest {
             infra?.shutDownAll()

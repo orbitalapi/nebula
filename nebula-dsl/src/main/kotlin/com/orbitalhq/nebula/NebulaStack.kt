@@ -6,10 +6,12 @@ import com.orbitalhq.nebula.s3.S3Dsl
 import com.orbitalhq.nebula.sql.SqlDsl
 import com.orbitalhq.nebula.utils.NameGenerator
 
-class NebulaStack(val name: String = NameGenerator.generateName()) : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl {
-
+class NebulaStack(val name: String = NameGenerator.generateName(), initialComponents: List<InfrastructureComponent> = emptyList()) : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl {
     private val _components = mutableListOf<InfrastructureComponent>()
 
+    init {
+        initialComponents.forEach { add(it) }
+    }
 
     override fun <T : InfrastructureComponent> add(component: T): T {
         _components.add(component)

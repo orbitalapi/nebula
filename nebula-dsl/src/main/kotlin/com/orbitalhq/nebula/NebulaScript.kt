@@ -17,7 +17,7 @@ import kotlin.script.experimental.jvm.jvm
 abstract class NebulaScript
 
 val systemDefaultImports = setOf(
-    "com.orbitalhq.nebula.services",
+    "com.orbitalhq.nebula.stack",
     "kotlin.random.Random"
 )
 

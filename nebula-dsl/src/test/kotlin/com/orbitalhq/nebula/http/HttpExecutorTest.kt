@@ -1,6 +1,6 @@
 package com.orbitalhq.nebula.http
 
-import com.orbitalhq.nebula.InfrastructureExecutor
+import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.stack
 import com.orbitalhq.nebula.start
 import io.kotest.core.spec.style.DescribeSpec
@@ -15,7 +15,7 @@ import kotlinx.coroutines.runBlocking
 
 class HttpExecutorTest : DescribeSpec({
 
-    lateinit var infra: InfrastructureExecutor
+    lateinit var infra: StackRunner
     describe("Http Executor") {
         afterTest {
             infra?.shutDownAll()

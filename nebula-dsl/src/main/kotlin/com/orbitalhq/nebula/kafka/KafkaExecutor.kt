@@ -1,9 +1,7 @@
 package com.orbitalhq.nebula.kafka
 
-import com.orbitalhq.nebula.ContainerInfo
 import com.orbitalhq.nebula.InfrastructureComponent
-import com.orbitalhq.nebula.InfrastructureExecutor
-import com.orbitalhq.nebula.NetworkInfo
+import com.orbitalhq.nebula.StackRunner
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +18,7 @@ import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.utility.DockerImageName
 import java.util.*
 
-val InfrastructureExecutor.kafka: List<KafkaExecutor>
+val StackRunner.kafka: List<KafkaExecutor>
     get() {
         return this.component<KafkaExecutor>()
     }

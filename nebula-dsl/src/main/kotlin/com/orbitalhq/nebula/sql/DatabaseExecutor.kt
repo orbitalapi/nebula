@@ -1,7 +1,7 @@
 package com.orbitalhq.nebula.sql
 
 import com.orbitalhq.nebula.InfrastructureComponent
-import com.orbitalhq.nebula.InfrastructureExecutor
+import com.orbitalhq.nebula.StackRunner
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -9,7 +9,7 @@ import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.testcontainers.containers.JdbcDatabaseContainer
 
-val InfrastructureExecutor.database: List<DatabaseExecutor>
+val StackRunner.database: List<DatabaseExecutor>
     get() = this.component<DatabaseExecutor>()
 
 class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureComponent {

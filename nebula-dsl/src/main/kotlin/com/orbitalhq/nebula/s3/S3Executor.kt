@@ -1,9 +1,7 @@
 package com.orbitalhq.nebula.s3
 
-import com.orbitalhq.nebula.ContainerInfo
 import com.orbitalhq.nebula.InfrastructureComponent
-import com.orbitalhq.nebula.InfrastructureExecutor
-import com.orbitalhq.nebula.NetworkInfo
+import com.orbitalhq.nebula.StackRunner
 import org.testcontainers.containers.localstack.LocalStackContainer
 import org.testcontainers.utility.DockerImageName
 import software.amazon.awssdk.services.s3.S3Client
@@ -14,7 +12,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import java.nio.file.Paths
 
-val InfrastructureExecutor.s3: List<S3Executor>
+val StackRunner.s3: List<S3Executor>
     get() {
         return this.component<S3Executor>()
     }

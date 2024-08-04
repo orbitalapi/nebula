@@ -1,6 +1,6 @@
 package com.orbitalhq.nebula.sql
 
-import com.orbitalhq.nebula.InfrastructureExecutor
+import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.stack
 import com.orbitalhq.nebula.start
 import io.kotest.core.spec.style.DescribeSpec
@@ -14,7 +14,7 @@ import java.util.*
 
 class SqlExecutorTest : DescribeSpec({
 
-    lateinit var infra: InfrastructureExecutor
+    lateinit var infra: StackRunner
     lateinit var dsl: DSLContext
 
     describe("PostgreSQL database") {

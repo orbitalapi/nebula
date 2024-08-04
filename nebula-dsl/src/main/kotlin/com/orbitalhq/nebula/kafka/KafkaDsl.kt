@@ -2,7 +2,6 @@ package com.orbitalhq.nebula.kafka
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.orbitalhq.nebula.InfraDsl
-import com.orbitalhq.nebula.InfrastructureExecutor
 import org.apache.kafka.common.serialization.Serializer
 import org.apache.kafka.common.serialization.StringSerializer
 import kotlin.reflect.KClass

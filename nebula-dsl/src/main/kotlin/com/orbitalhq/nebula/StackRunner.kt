@@ -3,24 +3,25 @@ package com.orbitalhq.nebula
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
 
-class InfrastructureExecutor() {
+class StackRunner() {
     private val logger = KotlinLogging.logger {}
-    val specs = ConcurrentHashMap<String, NebulaStack>()
+    val stacks = ConcurrentHashMap<String, NebulaStack>()
 
-    fun execute(spec: NebulaStack, name: String = spec.name) {
-        this.specs.compute(name) { key, existingSpec ->
+    fun submit(stack: NebulaStack, name: String = stack.name) {
+        this.stacks.compute(name) { key, existingSpec ->
             if (existingSpec != null) {
                 logger.info { "Replacing spec $key" }
                 shutDown(name)
             }
-            spec
+            stack
         }
         start(name)
-
     }
 
+    val stackNames: List<String> = stacks.keys.toList()
+
     private fun start(name: String) {
-        val spec = this.specs[name] ?: error("Spec $name not found")
+        val spec = this.stacks[name] ?: error("Spec $name not found")
         logger.info { "Starting ${spec.name}" }
         spec.components.forEach { component ->
             component.start()
@@ -28,16 +29,16 @@ class InfrastructureExecutor() {
     }
 
     inline fun <reified T : InfrastructureComponent> component(): List<T> {
-        return this.specs.values.flatMap {
+        return this.stacks.values.flatMap {
             it.components.filterIsInstance<T>()
         }
     }
     fun shutDownAll() {
-        this.specs.keys.forEach { shutDown(it) }
+        this.stacks.keys.forEach { shutDown(it) }
     }
 
     fun shutDown(name: String) {
-        val spec = this.specs[name] ?: error("Spec $name not found")
+        val spec = this.stacks[name] ?: error("Spec $name not found")
         logger.info { "Shutting down ${spec.name}" }
         spec.components.forEach { it.stop() }
     }
@@ -46,8 +47,8 @@ class InfrastructureExecutor() {
 /**
  * Convenience for testing
  */
-fun NebulaStack.start(): InfrastructureExecutor {
-    val executor = InfrastructureExecutor()
-    executor.execute(this)
+fun NebulaStack.start(): StackRunner {
+    val executor = StackRunner()
+    executor.submit(this)
     return executor
 }
