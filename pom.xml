@@ -36,7 +36,7 @@
         <awssdk.version>2.26.27</awssdk.version>
         <reactor-bom.version>2023.0.8</reactor-bom.version>
         <jackson.version>2.16.1</jackson.version>
-        <awssdk.version>2.20.43</awssdk.version>
+        <awssdk.version>2.27.17</awssdk.version>
     </properties>
 
     <repositories>
