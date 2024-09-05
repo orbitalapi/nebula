@@ -1,5 +1,6 @@
 package com.orbitalhq.nebula.http
 
+import com.orbitalhq.nebula.ComponentInfo
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.StackRunner
 import io.ktor.http.*
@@ -14,7 +15,8 @@ val StackRunner.http: List<HttpExecutor>
         return this.component<HttpExecutor>()
     }
 
-class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent {
+class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent<HttpServerConfig> {
+    override val type: String = "http"
 
     private val port = if (config.port == 0) {
         findFreePort()
@@ -30,7 +32,7 @@ class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent {
         private set
 
 
-    override fun start() {
+    override fun start():ComponentInfo<HttpServerConfig> {
         server = embeddedServer(Netty, port = port) {
             routing {
                 config.routes.forEach { route ->
@@ -45,6 +47,10 @@ class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent {
             }
         }
         server.start(wait = false)
+        return ComponentInfo(
+            container = null,
+            componentConfig = HttpServerConfig(port)
+        )
     }
 
     private fun findFreePort(): Int {
@@ -57,3 +63,8 @@ class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent {
 
 
 }
+
+
+data class HttpServerConfig(
+    val port: Int
+)

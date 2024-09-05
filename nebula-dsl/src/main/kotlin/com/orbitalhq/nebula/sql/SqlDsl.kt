@@ -8,21 +8,21 @@ import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 
 interface SqlDsl : InfraDsl {
-    fun postgres(imageName: String = "postgres:13", dsl: DatabaseBuilder.() -> Unit): DatabaseExecutor =
-        database(PostgreSQLContainer(DockerImageName.parse(imageName)), SQLDialect.POSTGRES, dsl)
+    fun postgres(imageName: String = "postgres:13", databaseName: String = "testDb", dsl: DatabaseBuilder.() -> Unit): DatabaseExecutor =
+        database(PostgreSQLContainer(DockerImageName.parse(imageName)), SQLDialect.POSTGRES, "postgres", databaseName, dsl)
 
-    fun mysql(imageName: String = "mysql:9", dsl: DatabaseBuilder.() -> Unit): DatabaseExecutor =
-        database(MySQLContainer(DockerImageName.parse(imageName)), SQLDialect.MYSQL, dsl)
+    fun mysql(imageName: String = "mysql:9", databaseName: String = "testDb", dsl: DatabaseBuilder.() -> Unit): DatabaseExecutor =
+        database(MySQLContainer(DockerImageName.parse(imageName)), SQLDialect.MYSQL, "mysql", databaseName, dsl)
 
-    fun database(container: JdbcDatabaseContainer<*>, dialect: SQLDialect, dsl: DatabaseBuilder.() -> Unit): DatabaseExecutor {
-        val builder = DatabaseBuilder(container, dialect)
+    fun database(container: JdbcDatabaseContainer<*>, dialect: SQLDialect, type: String, databaseName: String, dsl: DatabaseBuilder.() -> Unit): DatabaseExecutor {
+        val builder = DatabaseBuilder(container, dialect, type, databaseName)
         builder.dsl()
         return this.add(DatabaseExecutor(builder.build()))
     }
 }
 
 
-class DatabaseBuilder(private val container: JdbcDatabaseContainer<*>, private val dialect: SQLDialect) {
+class DatabaseBuilder(private val container: JdbcDatabaseContainer<*>, private val dialect: SQLDialect, private val type: String, private val databaseName: String) {
     private val tables = mutableListOf<TableConfig>()
 
     fun table(name: String, ddl: String, data: List<Map<String, Any>> = emptyList()) {
@@ -33,13 +33,15 @@ class DatabaseBuilder(private val container: JdbcDatabaseContainer<*>, private v
         table(name, ddl, data.toList())
     }
 
-    fun build(): DatabaseConfig = DatabaseConfig(container, dialect,  tables)
+    fun build(): DatabaseConfig = DatabaseConfig(container, dialect,  tables, type, databaseName)
 }
 
 data class DatabaseConfig(
     val container: JdbcDatabaseContainer<*>,
     val dialect: SQLDialect,
     val tables: List<TableConfig>,
+    val type: String,
+    val databaseName: String
 )
 
 data class TableConfig(val name: String, val ddl: String, val data: List<Map<String, Any>>)

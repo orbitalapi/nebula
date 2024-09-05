@@ -1,6 +1,7 @@
 import com.orbitalhq.nebula.utils.duration
 
-services {
+stack {
+    ht
     kafka {
         producer("100ms".duration(), "stockQuotes") {
             jsonMessage {

@@ -1,5 +1,7 @@
 package com.orbitalhq.nebula.sql
 
+import com.orbitalhq.nebula.ComponentInfo
+import com.orbitalhq.nebula.ContainerInfo
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.StackRunner
 import com.zaxxer.hikari.HikariConfig
@@ -12,10 +14,11 @@ import org.testcontainers.containers.JdbcDatabaseContainer
 val StackRunner.database: List<DatabaseExecutor>
     get() = this.component<DatabaseExecutor>()
 
-class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureComponent {
+class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureComponent<DatabaseContainerConfig> {
     companion object {
         private val logger = KotlinLogging.logger {}
     }
+    override val type: String = config.type
 
     val databaseContainer: JdbcDatabaseContainer<*>
         get() = config.container
@@ -25,12 +28,24 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
     lateinit var dsl: DSLContext
         private set
 
-    override fun start() {
+    override fun start(): ComponentInfo<DatabaseContainerConfig> {
+        databaseContainer.withDatabaseName(config.databaseName)
         databaseContainer.start()
 
         setupDataSource()
         setupJooq()
         createTablesAndLoadData()
+
+        return ComponentInfo(
+            ContainerInfo.from(databaseContainer),
+            DatabaseContainerConfig(
+                databaseContainer.databaseName,
+                databaseContainer.jdbcUrl,
+                databaseContainer.username,
+                databaseContainer.password,
+                databaseContainer.firstMappedPort.toString()
+            )
+        )
     }
 
     private fun setupJooq() {
@@ -62,6 +77,7 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
             }
         }
     }
+
     private fun createTable(table: TableConfig) {
         logger.info { "Creating table: ${table.name}" }
         dsl.execute(table.ddl)
@@ -103,3 +119,12 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
     val password: String
         get() = databaseContainer.password
 }
+
+// Placeholder until I know what to put here
+data class DatabaseContainerConfig(
+    val databaseName: String,
+    val jdbcUrl: String,
+    val username: String,
+    val password: String,
+    val port: String
+)

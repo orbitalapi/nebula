@@ -8,6 +8,7 @@ import com.orbitalhq.nebula.NebulaStack
 import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
 import com.orbitalhq.nebula.runtime.server.NebulaServer
+import org.testcontainers.containers.output.Slf4jLogConsumer
 import picocli.CommandLine.ParameterException
 import java.io.File
 import java.lang.Thread.sleep

@@ -10,6 +10,6 @@ package com.orbitalhq.nebula
  * Then, add the interface to the list of implemented interfaces in InfraSpec
  */
 interface InfraDsl {
-    val components: List<InfrastructureComponent>
-    fun <T : InfrastructureComponent> add(component: T): T
+    val components: List<InfrastructureComponent<*>>
+    fun <T : InfrastructureComponent<*>> add(component: T): T
 }

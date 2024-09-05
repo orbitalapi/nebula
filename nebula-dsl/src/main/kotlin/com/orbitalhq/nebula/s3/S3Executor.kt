@@ -1,5 +1,7 @@
 package com.orbitalhq.nebula.s3
 
+import com.orbitalhq.nebula.ComponentInfo
+import com.orbitalhq.nebula.ContainerInfo
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.StackRunner
 import org.testcontainers.containers.localstack.LocalStackContainer
@@ -17,18 +19,21 @@ val StackRunner.s3: List<S3Executor>
         return this.component<S3Executor>()
     }
 
-class S3Executor(private val config: S3Config) : InfrastructureComponent {
+class S3Executor(private val config: S3Config) : InfrastructureComponent<LocalstackContainerConfig> {
     private lateinit var localstack: LocalStackContainer
     lateinit var s3Client: S3Client
         private set
 
-    override fun start() {
+    override val type: String = "s3"
+
+    override fun start():ComponentInfo<LocalstackContainerConfig> {
         localstack = LocalStackContainer(DockerImageName.parse("localstack/localstack:latest"))
             .withServices(LocalStackContainer.Service.S3)
         localstack.start()
 
+        val endpointOverride = localstack.getEndpointOverride(LocalStackContainer.Service.S3)
         s3Client = S3Client.builder()
-            .endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.S3))
+            .endpointOverride(endpointOverride)
             .credentialsProvider { AwsBasicCredentials.create(localstack.accessKey, localstack.secretKey) }
             .region(Region.of(localstack.region))
             .build()
@@ -37,6 +42,15 @@ class S3Executor(private val config: S3Config) : InfrastructureComponent {
             createBucket(bucketConfig)
             uploadResources(bucketConfig)
         }
+
+        return ComponentInfo(
+            ContainerInfo.from(localstack),
+            LocalstackContainerConfig(
+                accessKey = localstack.accessKey,
+                secretKey = localstack.secretKey,
+                endpointOverride = endpointOverride.toASCIIString()
+            )
+        )
     }
 
     override fun stop() {
@@ -88,3 +102,10 @@ class S3Executor(private val config: S3Config) : InfrastructureComponent {
         }
     }
 }
+
+// placeholder until I work out what's needed here
+data class LocalstackContainerConfig(
+    val accessKey: String,
+    val secretKey: String,
+    val endpointOverride: String
+)

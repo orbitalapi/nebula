@@ -28,14 +28,19 @@ class NebulaServer(
             }
 
             routing {
-                route("/stack") {
+                route("/health") {
+                    get {
+                        call.respondText("OK")
+                    }
+                }
+                route("/stacks") {
+                    // Create a stack without an id -- an id is assigned
                     post {
                         val script = call.receiveText()
                         val stack = scriptExecutor.toStack(script)
                         stackExecutor.submit(stack)
                         call.respond(stack.name)
                     }
-
                     put("/{id}") {
                         val id = call.parameters["id"] ?: return@put call.respond(
                             HttpStatusCode.BadRequest,
@@ -50,7 +55,7 @@ class NebulaServer(
                     }
 
                     get {
-                        call.respond(stackExecutor.stackNames)
+                        call.respond(stackExecutor.stateState)
                     }
 
                     delete("/{id}") {
@@ -59,7 +64,7 @@ class NebulaServer(
                             "Missing or malformed id"
                         )
                         stackExecutor.shutDown(id)
-                        call.respond(stackExecutor.stackNames)
+                        call.respond(stackExecutor.stateState)
                     }
                 }
             }
