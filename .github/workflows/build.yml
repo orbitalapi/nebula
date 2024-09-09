@@ -30,7 +30,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: nebula.zip
-          path: nebula-cli/nebula.zip
+          path: nebula-cli/target/nebula.zip
 
   determine-version:
     runs-on: ubuntu-latest
