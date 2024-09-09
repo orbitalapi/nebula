@@ -27,8 +27,6 @@ jobs:
       - name: Build with Maven
         run: mvn clean verify
       - name: Archive build output
-        run: mv nebula-cli/target/nebula-cli.jar nebula-cli/
-        # Save the build artifact for use in the next job
         uses: actions/upload-artifact@v3
         with:
           name: nebula.zip
