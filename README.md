@@ -46,8 +46,10 @@ Nebula is part of the test and demo infrastructure at [Orbital](https://orbitalh
 This starts Nebula as in http server mode, listening on port 8099
 
 ```bash
-docker run -v /var/run/docker.sock:/var/run/docker.sock --privileged --network host nebula
+docker run -v /var/run/docker.sock:/var/run/docker.sock --privileged --network host orbitalhq/nebula
 ```
 
  * Because nebula launches other docker images, we need `privileged` access, along with access to the docker daemon
  * Also, for you to be able to communicate with the downloaded images, the container runs within the `host` network
+
+
