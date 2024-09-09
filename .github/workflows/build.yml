@@ -41,11 +41,10 @@ jobs:
         id: get-version
         run: |
           if [ "${{ github.ref_name }}" == "main" ]; then
-              "VERSION=next"
+              echo "VERSION=next" >> $GITHUB_ENV
           elif [ "${{ github.ref_type }}" == "tag" ]; then
-            "VERSION=${{ github.ref_name }}"
+            echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
           fi
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
       - name: Echo version (for debugging)
         run: |
           echo "Current version: ${{ steps.get-version.outputs.version }}"
