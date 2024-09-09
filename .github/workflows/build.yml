@@ -38,12 +38,8 @@ jobs:
       - name: Determine version
         id: get-version
         run: |
-          if [ "${{ github.ref_type }}" == "branch" ]; then
-            if [ "${{ github.ref_name }}" == "main" ]; then
+          if [ "${{ github.ref_name }}" == "main" ]; then
               echo "VERSION=next" >> $GITHUB_ENV
-            else
-              echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
-            fi
           elif [ "${{ github.ref_type }}" == "tag" ]; then
             echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
           fi
