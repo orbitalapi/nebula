@@ -56,9 +56,6 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-      - name: Echo version
-        run: echo ${{ env.VERSION }}
-
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -80,6 +77,6 @@ jobs:
       - name: Build and Push Docker Image
         working-directory: nebula-cli
         run: |
-          docker build -t orbitalhq/nebula:${{ env.VERSION }} .
-          docker push orbitalhq/nebula:${{ env.VERSION }}
+          docker build -t orbitalhq/nebula:${{ needs.determine-version.outputs.VERSION }} .
+          docker push orbitalhq/nebula:${{ needs.determine-version.outputs.VERSION }}
 
