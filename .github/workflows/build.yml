@@ -35,7 +35,7 @@ jobs:
   determine-version:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.get-version.outputs.VERSION }}  # Pass the version as output
+      VERSION: ${{ steps.get-version.outputs.VERSION }}  # Pass the version as output
     steps:
       - name: Determine version
         id: get-version
@@ -50,6 +50,8 @@ jobs:
           echo "Current version: ${{ steps.get-version.outputs.VERSION }}"
 
   build-docker:
+    env:
+      VERSION: ${{ steps.get-version.outputs.VERSION }}"
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     needs:
       - determine-version
@@ -77,6 +79,6 @@ jobs:
       - name: Build and Push Docker Image
         working-directory: nebula-cli
         run: |
-          docker build -t orbitalhq/nebula:${{ needs.determine-version.outputs.version }} .
-          docker push orbitalhq/nebula:${{ needs.determine-version.outputs.version }}
+          docker build -t orbitalhq/nebula:${{ needs.determine-version.outputs.VERSION }} .
+          docker push orbitalhq/nebula:${{ needs.determine-version.outputs.VERSION }}
 
