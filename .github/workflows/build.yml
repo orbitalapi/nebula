@@ -45,9 +45,6 @@ jobs:
           elif [ "${{ github.ref_type }}" == "tag" ]; then
             echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
           fi
-      - name: Echo version (for debugging)
-        run: |
-          echo "Current version: ${{ steps.get-version.outputs.VERSION }}"
 
   build-docker:
     env:
