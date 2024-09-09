@@ -35,7 +35,7 @@ jobs:
   determine-version:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.get-version.outputs.version }}  # Pass the version as output
+      version: ${{ steps.get-version.outputs.VERSION }}  # Pass the version as output
     steps:
       - name: Determine version
         id: get-version
