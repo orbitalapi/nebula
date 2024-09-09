@@ -47,6 +47,7 @@ jobs:
           elif [ "${{ github.ref_type }}" == "tag" ]; then
             echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
           fi
+          echo "Current version: $VERSION"
 
   build-docker:
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
