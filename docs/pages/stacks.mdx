@@ -1,0 +1,53 @@
+## Working with Stacks
+
+In Nebula, a collection of services is called Stack.
+
+```kotlin
+stack {
+    http {
+        get("/hello") { call ->
+            call.respondText("Hello, World!")
+    }
+}
+```
+
+Stacks are managed by submitting to a Nebula server over http:
+
+### Creating a stack
+Create a stack by POSTing a Nebula script to `/stacks`
+
+```bash
+curl --location 'http://localhost:8099/stacks' \
+--header 'Content-Type: text/plain' \
+--data 'stack {
+    http {
+        get("/hello") { call ->
+            call.respondText("Hello, World!")
+        }
+    }
+}'
+```
+
+### Listing the state of current stacks
+Fetch the current stacks (including their configured variables) by GET `/stacks`
+
+```bash
+curl --location 'http://localhost:8099/stacks'
+```
+
+```json
+{
+    "early-swordfish": {
+        "kafka": {
+            "container": {
+                "containerId": "353f3be39c55a2cb72adebb5068b4ccb72f936e0c39e2571e33c13a30a29dcf4",
+                "imageName": "confluentinc/cp-kafka:6.2.2",
+                "containerName": "/clever_neumann"
+            },
+            "componentConfig": {
+                "bootstrapServers": "PLAINTEXT://172.17.0.1:49154"
+            }
+        }
+    }
+}
+```
