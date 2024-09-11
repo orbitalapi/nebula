@@ -48,7 +48,13 @@ class StackRunner() {
     fun shutDown(name: String) {
         val spec = this.stacks[name] ?: error("Spec $name not found")
         logger.info { "Shutting down ${spec.name}" }
-        spec.components.forEach { it.stop() }
+        spec.components.forEach {
+            try {
+                it.stop()
+            } catch (e:Exception) {
+                logger.error(e) { "Error during shut down ${spec.name}" }
+            }
+        }
     }
 }
 
