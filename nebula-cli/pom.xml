@@ -24,12 +24,12 @@
         </dependency>
 
         <dependency>
-            <groupId>com.orbitalhq</groupId>
+            <groupId>com.orbitalhq.nebula</groupId>
             <artifactId>nebula-dsl</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.orbitalhq</groupId>
+            <groupId>com.orbitalhq.nebula</groupId>
             <artifactId>nebula-runtime</artifactId>
             <version>${project.version}</version>
         </dependency>
