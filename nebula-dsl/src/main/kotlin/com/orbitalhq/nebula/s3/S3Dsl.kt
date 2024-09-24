@@ -1,23 +1,24 @@
 package com.orbitalhq.nebula.s3
 
 import com.orbitalhq.nebula.InfraDsl
+import com.orbitalhq.nebula.utils.NameGenerator
 
 interface S3Dsl : InfraDsl {
-    fun s3(imageName: String = "localstack/localstack:latest", dsl: S3Builder.() -> Unit): S3Executor {
-        val builder = S3Builder(imageName)
+    fun s3(imageName: String = "localstack/localstack:latest", componentName: String = "s3", dsl: S3Builder.() -> Unit): S3Executor {
+        val builder = S3Builder(imageName, componentName)
         builder.dsl()
         return this.add(S3Executor(builder.build()))
     }
 }
 
-class S3Builder(private val imageName: String) {
+class S3Builder(private val imageName: String, private val componentName: String) {
     private val buckets = mutableListOf<BucketConfig>()
 
     fun bucket(name: String, init: BucketBuilder.() -> Unit) {
         buckets.add(BucketBuilder(name).apply(init).build())
     }
 
-    fun build(): S3Config = S3Config(buckets)
+    fun build(): S3Config = S3Config(imageName, buckets, componentName = componentName)
 }
 
 class BucketBuilder(private val name: String) {
@@ -36,7 +37,7 @@ class BucketBuilder(private val name: String) {
 
 
 // Data classes to hold configurations
-data class S3Config(val buckets: List<BucketConfig>)
+data class S3Config(val imageName: String, val buckets: List<BucketConfig>, val componentName: String = NameGenerator.generateName())
 data class BucketConfig(val name: String, val resources: List<S3Resource>)
 
 // Sealed class for S3 resources

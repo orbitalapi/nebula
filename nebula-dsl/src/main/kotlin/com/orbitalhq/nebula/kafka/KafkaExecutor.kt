@@ -1,9 +1,12 @@
 package com.orbitalhq.nebula.kafka
 
-import com.orbitalhq.nebula.ComponentInfo
-import com.orbitalhq.nebula.ContainerInfo
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.StackRunner
+import com.orbitalhq.nebula.containerInfoFrom
+import com.orbitalhq.nebula.core.ComponentInfo
+import com.orbitalhq.nebula.core.ComponentLifecycleEvent
+import com.orbitalhq.nebula.core.ComponentName
+import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,8 +21,8 @@ import org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CON
 import org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.testcontainers.containers.KafkaContainer
-import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.utility.DockerImageName
+import reactor.core.publisher.Flux
 import java.util.*
 
 val StackRunner.kafka: List<KafkaExecutor>
@@ -32,14 +35,25 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
         private val logger = KotlinLogging.logger {}
     }
 
-    override val type: String = "kafka"
+    override val type = "kafka"
     private lateinit var kafkaContainer: KafkaContainer
     private val producerJobs = mutableListOf<Job>()
     private val producers = mutableListOf<Producer<*,*>>()
+    private val eventSource = ComponentLifecycleEventSource()
+
+    override val name = config.componentName
+    override val lifecycleEvents: Flux<ComponentLifecycleEvent> = eventSource.events
+    override val currentState: ComponentLifecycleEvent
+        get() {
+            return eventSource.currentState
+        }
+
+    override var componentInfo: ComponentInfo<KafkaContainerConfig>? = null
+        private set
 
     override fun start(): ComponentInfo<KafkaContainerConfig> {
         kafkaContainer = KafkaContainer(DockerImageName.parse(config.imageName))
-        kafkaContainer.start()
+        eventSource.startContainerAndEmitEvents(kafkaContainer)
 
         val bootstrapServers = kafkaContainer.bootstrapServers
         logger.info { "Kafka container started - bootstrap servers: $bootstrapServers" }
@@ -63,18 +77,26 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
             }
             producerJobs.add(job)
         }
-        return ComponentInfo(
-            ContainerInfo.from(kafkaContainer),
+        componentInfo = ComponentInfo(
+            containerInfoFrom(kafkaContainer),
             KafkaContainerConfig(
                 kafkaContainer.bootstrapServers
-            )
+            ),
+            type = type,
+            name = name,
+            id = id
+
         )
+        // re-emit the running event now we're fully configured
+        eventSource.running()
+        return componentInfo!!
     }
 
     override fun stop() {
+        eventSource.stopping()
         producerJobs.forEach { it.cancel() }
         producers.forEach { it.close() }
-        kafkaContainer.stop()
+        eventSource.stopContainerAndEmitEvents(kafkaContainer)
     }
 
     val bootstrapServers: String

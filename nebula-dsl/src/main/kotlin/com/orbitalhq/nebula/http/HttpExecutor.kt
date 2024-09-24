@@ -1,13 +1,18 @@
 package com.orbitalhq.nebula.http
 
-import com.orbitalhq.nebula.ComponentInfo
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.StackRunner
+import com.orbitalhq.nebula.containerInfoFrom
+import com.orbitalhq.nebula.core.ComponentInfo
+import com.orbitalhq.nebula.core.ComponentLifecycleEvent
+import com.orbitalhq.nebula.core.ComponentName
+import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.routing.*
+import reactor.core.publisher.Flux
 import java.net.ServerSocket
 
 val StackRunner.http: List<HttpExecutor>
@@ -16,13 +21,22 @@ val StackRunner.http: List<HttpExecutor>
     }
 
 class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent<HttpServerConfig> {
-    override val type: String = "http"
+    override val type = "http"
+    override val name = config.name
 
     private val port = if (config.port == 0) {
         findFreePort()
     } else {
         config.port
     }
+
+    private val eventSource = ComponentLifecycleEventSource()
+
+    override val lifecycleEvents: Flux<ComponentLifecycleEvent> = eventSource.events
+    override val currentState: ComponentLifecycleEvent
+        get() {
+            return eventSource.currentState
+        }
 
     val baseUrl: String
         get() {
@@ -31,8 +45,11 @@ class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent<Htt
     lateinit var server: NettyApplicationEngine
         private set
 
+    override var componentInfo: ComponentInfo<HttpServerConfig>? = null
+        private set
 
     override fun start():ComponentInfo<HttpServerConfig> {
+        eventSource.starting()
         server = embeddedServer(Netty, port = port) {
             routing {
                 config.routes.forEach { route ->
@@ -47,10 +64,15 @@ class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent<Htt
             }
         }
         server.start(wait = false)
-        return ComponentInfo(
+        eventSource.running()
+        componentInfo =  ComponentInfo(
             container = null,
-            componentConfig = HttpServerConfig(port)
+            componentConfig = HttpServerConfig(port),
+            type = type,
+            name = name,
+            id = id
         )
+        return componentInfo!!
     }
 
     private fun findFreePort(): Int {
@@ -58,7 +80,9 @@ class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent<Htt
     }
 
     override fun stop() {
+        eventSource.stopping()
         server.stop(1000, 5000)
+        eventSource.stopped()
     }
 
 

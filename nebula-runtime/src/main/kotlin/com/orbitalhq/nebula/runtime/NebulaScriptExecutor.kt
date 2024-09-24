@@ -21,7 +21,12 @@ class NebulaScriptExecutor {
         val evaluationResult = resultWithDiagnostics.valueOrThrow()
         return when (val returnValue = evaluationResult.returnValue) {
             is ResultValue.Value -> returnValue.value as NebulaStack
-            else -> error("Unhandled branch: ${returnValue::class.simpleName}")
+            is ResultValue.Error -> {
+                error(returnValue.error)
+            }
+            else -> {
+                error("Unhandled branch: ${returnValue::class.simpleName}")
+            }
         }
     }
 

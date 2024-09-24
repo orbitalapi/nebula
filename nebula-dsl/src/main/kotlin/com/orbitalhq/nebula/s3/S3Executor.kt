@@ -1,15 +1,18 @@
 package com.orbitalhq.nebula.s3
 
-import com.orbitalhq.nebula.ComponentInfo
-import com.orbitalhq.nebula.ContainerInfo
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.StackRunner
+import com.orbitalhq.nebula.containerInfoFrom
+import com.orbitalhq.nebula.core.ComponentInfo
+import com.orbitalhq.nebula.core.ComponentLifecycleEvent
+import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import org.testcontainers.containers.localstack.LocalStackContainer
 import org.testcontainers.utility.DockerImageName
-import software.amazon.awssdk.services.s3.S3Client
+import reactor.core.publisher.Flux
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
-import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.core.sync.RequestBody
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import java.nio.file.Paths
@@ -24,12 +27,24 @@ class S3Executor(private val config: S3Config) : InfrastructureComponent<Localst
     lateinit var s3Client: S3Client
         private set
 
-    override val type: String = "s3"
+    override val type = "s3"
+    override val name = config.componentName
+
+    private val eventSource = ComponentLifecycleEventSource()
+
+    override val lifecycleEvents: Flux<ComponentLifecycleEvent> = eventSource.events
+    override val currentState: ComponentLifecycleEvent
+    get() {
+        return eventSource.currentState
+    }
+    override var componentInfo: ComponentInfo<LocalstackContainerConfig>? = null
+        private set
 
     override fun start():ComponentInfo<LocalstackContainerConfig> {
-        localstack = LocalStackContainer(DockerImageName.parse("localstack/localstack:latest"))
+        localstack = LocalStackContainer(DockerImageName.parse(config.imageName))
             .withServices(LocalStackContainer.Service.S3)
-        localstack.start()
+
+        eventSource.startContainerAndEmitEvents(localstack)
 
         val endpointOverride = localstack.getEndpointOverride(LocalStackContainer.Service.S3)
         s3Client = S3Client.builder()
@@ -43,18 +58,23 @@ class S3Executor(private val config: S3Config) : InfrastructureComponent<Localst
             uploadResources(bucketConfig)
         }
 
-        return ComponentInfo(
-            ContainerInfo.from(localstack),
+        componentInfo = ComponentInfo(
+            containerInfoFrom(localstack),
             LocalstackContainerConfig(
                 accessKey = localstack.accessKey,
                 secretKey = localstack.secretKey,
                 endpointOverride = endpointOverride.toASCIIString()
-            )
+            ),
+            type = type,
+            name = name,
+            id = id
+
         )
+        return componentInfo!!
     }
 
     override fun stop() {
-        localstack.stop()
+        eventSource.stopContainerAndEmitEvents(localstack)
     }
 
     private fun createBucket(bucketConfig: BucketConfig) {
