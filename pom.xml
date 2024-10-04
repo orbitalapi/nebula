@@ -37,7 +37,7 @@
 
         <testcontainers.version>1.19.0</testcontainers.version>
 
-        <kotlin.version>1.9.24</kotlin.version>
+        <kotlin.version>2.0.10</kotlin.version>
         <kafka.version>3.4.0</kafka.version>
         <awssdk.version>2.26.27</awssdk.version>
         <ktor.version>2.3.12</ktor.version>
