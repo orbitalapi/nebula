@@ -1,8 +1,19 @@
 package com.orbitalhq.nebula
 
+import com.orbitalhq.nebula.core.ComponentInfo
+import com.orbitalhq.nebula.core.ComponentLifecycleEvent
+import com.orbitalhq.nebula.core.ComponentName
+import com.orbitalhq.nebula.core.ComponentType
+import com.orbitalhq.nebula.core.ContainerInfo
 import org.testcontainers.containers.GenericContainer
+import reactor.core.publisher.Flux
 
 interface InfrastructureComponent<T> {
+    /**
+     * A name assigned to the component.
+     * The combination of name + type should be unique
+     */
+    val name: ComponentName
     /**
      * A human readable type of component - this should almost always
      * be the same as whatever the root node is of the dsl used to build
@@ -10,29 +21,25 @@ interface InfrastructureComponent<T> {
      *
      * Used for display / diagnostics
      */
-    val type: String
+    val type: ComponentType
     fun start(): ComponentInfo<T>
     fun stop()
+
+    val componentInfo: ComponentInfo<T>?
+    val lifecycleEvents: Flux<ComponentLifecycleEvent>
+    val currentState: ComponentLifecycleEvent
+
+    val id: String
+        get() {
+            return "$name-$type"
+        }
 }
 
-data class ComponentInfo<T>(
-    val container: ContainerInfo?,
-    val componentConfig: T
-)
 
-data class ContainerInfo(
-    val containerId: String,
-    val imageName: String,
-    val containerName: String,
-) {
-    companion object {
-        fun from(container: GenericContainer<*>):ContainerInfo {
-            return ContainerInfo(
-                containerId = container.containerId,
-                imageName = container.dockerImageName,
-                containerName = container.containerName,
-            )
-        }
-    }
-
+fun containerInfoFrom(container: GenericContainer<*>):ContainerInfo {
+    return ContainerInfo(
+        containerId = container.containerId,
+        imageName = container.dockerImageName,
+        containerName = container.containerName,
+    )
 }

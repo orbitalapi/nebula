@@ -1,9 +1,13 @@
 package com.orbitalhq.nebula.runtime.server
 
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.orbitalhq.nebula.NebulaStack
+import com.orbitalhq.nebula.StackName
 import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.ktor.serialization.jackson.*
 import io.ktor.server.application.*
@@ -13,14 +17,44 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.server.websocket.*
+import io.ktor.websocket.*
+import io.rsocket.kotlin.RSocketRequestHandler
+import io.rsocket.kotlin.ktor.server.RSocketSupport
+import io.rsocket.kotlin.ktor.server.rSocket
+import io.rsocket.kotlin.payload.Payload
+import io.rsocket.kotlin.payload.buildPayload
+import io.rsocket.kotlin.payload.data
+import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.reactive.asFlow
+import kotlinx.coroutines.runBlocking
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Hooks
 
 class NebulaServer(
     private val port: Int = 8999,
     private val scriptExecutor: NebulaScriptExecutor = NebulaScriptExecutor(),
     private val stackExecutor: StackRunner = StackRunner()
 ) {
-    fun start() {
-        embeddedServer(Netty, port = port) {
+    companion object {
+        private val logger = KotlinLogging.logger {}
+    }
+
+    init {
+        Hooks.onOperatorDebug()
+        Hooks.onErrorDropped { throwable ->
+            logger.error("Unhandled error in Reactor pipeline", throwable)
+        }
+
+    }
+
+    private val objectMapper = jacksonObjectMapper()
+    fun start(wait: Boolean = true): NettyApplicationEngine {
+        return embeddedServer(Netty, port = port) {
+            install(WebSockets)
+            install(RSocketSupport)
             install(ContentNegotiation) {
                 jackson {
                     configure(SerializationFeature.INDENT_OUTPUT, true)
@@ -67,8 +101,43 @@ class NebulaServer(
                         call.respond(stackExecutor.stateState)
                     }
                 }
+                webSocket("/stream/stacks") {
+                    incoming.consumeEach { frame ->
+                        require(frame is Frame.Text) { "Only text frames supported" }
+                        val payloadJson = frame.readText()
+
+                        logger.info { "Received updated stack submission: \n$payloadJson" }
+                        val updateStacksRequest =
+                            objectMapper.readValue<UpdateStackRSocketRequest>(payloadJson)
+
+                        val stackMap = compile(updateStacksRequest)
+                        val eventStreams = stackMap.map { (name, stack) ->
+                            stackExecutor.submit(stack, name, startAsync = true)
+                        }
+                        Flux.merge(eventStreams)
+                            .subscribe { event ->
+                                logger.info { "Emitting stack status event for stack ${event.stackName}" }
+                                runBlocking {
+                                    send(Frame.Text(objectMapper.writeValueAsString(event)))
+                                }
+
+                            }
+                    }
+                }
             }
-        }.start(wait = true)
+        }.start(wait = wait)
+    }
+
+    private fun compile(updateStacksRequest: UpdateStackRSocketRequest): Map<StackName, NebulaStack> {
+        return updateStacksRequest.stacks.mapValues { (key, stackScript) ->
+            scriptExecutor.toStack(stackScript).withName(key)
+        }
     }
 
 }
+
+data class StackEventStreamRequest(val stackId: StackName)
+
+typealias StackScript = String
+
+data class UpdateStackRSocketRequest(val stacks: Map<StackName, StackScript>)

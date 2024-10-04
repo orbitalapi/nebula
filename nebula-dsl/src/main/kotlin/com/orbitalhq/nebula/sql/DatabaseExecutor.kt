@@ -1,15 +1,19 @@
 package com.orbitalhq.nebula.sql
 
-import com.orbitalhq.nebula.ComponentInfo
-import com.orbitalhq.nebula.ContainerInfo
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.StackRunner
+import com.orbitalhq.nebula.containerInfoFrom
+import com.orbitalhq.nebula.core.ComponentInfo
+import com.orbitalhq.nebula.core.ComponentLifecycleEvent
+import com.orbitalhq.nebula.core.ComponentName
+import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.testcontainers.containers.JdbcDatabaseContainer
+import reactor.core.publisher.Flux
 
 val StackRunner.database: List<DatabaseExecutor>
     get() = this.component<DatabaseExecutor>()
@@ -18,7 +22,7 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
     companion object {
         private val logger = KotlinLogging.logger {}
     }
-    override val type: String = config.type
+    override val type = config.type
 
     val databaseContainer: JdbcDatabaseContainer<*>
         get() = config.container
@@ -28,24 +32,41 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
     lateinit var dsl: DSLContext
         private set
 
+    private val eventSource = ComponentLifecycleEventSource()
+
+    override val name = config.componentName
+    override val lifecycleEvents: Flux<ComponentLifecycleEvent> = eventSource.events
+    override val currentState: ComponentLifecycleEvent
+        get() {
+            return eventSource.currentState
+        }
+
+    override var componentInfo: ComponentInfo<DatabaseContainerConfig>? = null
+        private set
+
     override fun start(): ComponentInfo<DatabaseContainerConfig> {
         databaseContainer.withDatabaseName(config.databaseName)
-        databaseContainer.start()
+        eventSource.startContainerAndEmitEvents(databaseContainer)
 
         setupDataSource()
         setupJooq()
         createTablesAndLoadData()
 
-        return ComponentInfo(
-            ContainerInfo.from(databaseContainer),
+        componentInfo =  ComponentInfo(
+            containerInfoFrom(databaseContainer),
             DatabaseContainerConfig(
                 databaseContainer.databaseName,
                 databaseContainer.jdbcUrl,
                 databaseContainer.username,
                 databaseContainer.password,
                 databaseContainer.firstMappedPort.toString()
-            )
+            ),
+            type = type,
+            name = name,
+            id = id
+
         )
+        return componentInfo!!
     }
 
     private fun setupJooq() {
@@ -53,10 +74,11 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
     }
 
     override fun stop() {
+        eventSource.stopping()
         if (::dataSource.isInitialized) {
             dataSource.close()
         }
-        databaseContainer.stop()
+        eventSource.stopContainerAndEmitEvents(databaseContainer)
     }
 
     private fun setupDataSource() {

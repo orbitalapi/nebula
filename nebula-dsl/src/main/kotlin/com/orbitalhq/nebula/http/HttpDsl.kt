@@ -1,13 +1,15 @@
 package com.orbitalhq.nebula.http
 
 import com.orbitalhq.nebula.InfraDsl
+import com.orbitalhq.nebula.core.ComponentName
+import com.orbitalhq.nebula.utils.NameGenerator
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.util.pipeline.*
 
 interface HttpDsl : InfraDsl {
-    fun http(port: Int = 0, dsl: HttpApiBuilder.() -> Unit): HttpExecutor {
-        val builder = HttpApiBuilder(port)
+    fun http(port: Int = 0, componentName: String = "http", dsl: HttpApiBuilder.() -> Unit): HttpExecutor {
+        val builder = HttpApiBuilder(port, componentName)
         builder.dsl()
         return this.add(HttpExecutor(builder.build()))
     }
@@ -28,7 +30,7 @@ data class Route(
 )
 
 
-class HttpApiBuilder(private val port: Int = 0) {
+class HttpApiBuilder(private val port: Int = 0, private val componentName: ComponentName) {
     private val routes = mutableListOf<Route>()
     private fun addRoute(
         method: HttpMethod, path: String,
@@ -55,7 +57,7 @@ class HttpApiBuilder(private val port: Int = 0) {
         addRoute(HttpMethod.Delete, path, handler)
     }
 
-    fun build(): HttpConfig = HttpConfig(port, routes)
+    fun build(): HttpConfig = HttpConfig(port, routes, componentName)
 }
 
-data class HttpConfig(val port: Int, val routes: List<Route>)
+data class HttpConfig(val port: Int, val routes: List<Route>, val name: String)
