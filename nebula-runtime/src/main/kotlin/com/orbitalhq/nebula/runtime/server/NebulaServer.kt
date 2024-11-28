@@ -43,7 +43,6 @@ class NebulaServer(
     }
 
     init {
-        Hooks.onOperatorDebug()
         Hooks.onErrorDropped { throwable ->
             logger.error("Unhandled error in Reactor pipeline", throwable)
         }
@@ -118,7 +117,8 @@ class NebulaServer(
                             .subscribe { event ->
                                 logger.info { "Emitting stack status event for stack ${event.stackName}" }
                                 runBlocking {
-                                    send(Frame.Text(objectMapper.writeValueAsString(event)))
+                                    val stackStatusJson = objectMapper.writeValueAsString(event)
+                                    send(Frame.Text(stackStatusJson))
                                 }
 
                             }

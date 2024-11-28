@@ -8,13 +8,17 @@ import com.orbitalhq.nebula.stack
 import com.orbitalhq.nebula.utils.duration
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.maps.shouldContainKeys
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.StringDeserializer
 import reactor.kafka.receiver.KafkaReceiver
 import reactor.kafka.receiver.ReceiverOptions
 import reactor.kotlin.test.test
-import java.util.*
+import java.time.Duration
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
 class KafkaExecutorTest : DescribeSpec({
@@ -49,6 +53,84 @@ class KafkaExecutorTest : DescribeSpec({
                 .expectComplete()
                 .verify()
 
+        }
+
+        it("can share state between two streams") {
+            infra = stack {
+                kafka {
+                    val counter = AtomicInteger(0)
+                    val pendingOrders: ConcurrentLinkedQueue<Map<String, Any>> = ConcurrentLinkedQueue()
+                    producer("200ms".duration(), "orders") {
+                        jsonMessage {
+                            println("Creating new order...")
+                            val order = mapOf(
+                                "orderId" to counter.incrementAndGet(),
+                                "symbol" to listOf("GBP/USD", "AUD/USD", "NZD/USD").random(),
+                                "quantity" to Random.nextInt(500, 2000) * 100,
+                                "status" to "Submitted"
+                            )
+                            pendingOrders.add(order)
+                            order
+                        }
+                    }
+                    producer("100ms".duration(), "trades") {
+                        jsonMessages {
+                            val items = mutableListOf<Map<String, Any>>()
+                            while (true) {
+                                val item = pendingOrders.poll() ?: break
+                                items.add(item)
+                            }
+                            val trades = items.map { item ->
+                                val rate = Random.nextDouble(0.8, 0.95).toBigDecimal()
+                                val price = (item["quantity"] as Int).toBigDecimal().multiply(rate)
+                                val trade = mapOf(
+                                    "orderId" to item["orderId"],
+                                    "rate" to rate,
+                                    "price" to price,
+                                    "status" to "Filled"
+                                )
+                                trade
+                            }
+                            trades
+                        }
+
+                    }
+                }
+            }.start()
+
+            val orderConsumer = createKafkaConsumer(infra.kafka.single().bootstrapServers, topic = "orders")
+            var receviedOrder: Map<String, Any> = emptyMap()
+            orderConsumer.receive()
+                .take(5)
+                .test()
+                .expectSubscription()
+                .expectNextMatches {
+                    it.value().isJsonWithKeys("orderId", "symbol", "quantity")
+                    receviedOrder = jacksonObjectMapper().readValue<Map<String, Any>>(it.value())
+                    true
+                }
+                .expectNextMatches {
+                    it.value().isJsonWithKeys("orderId", "symbol", "quantity")
+                    val nextOrder = jacksonObjectMapper().readValue<Map<String, Any>>(it.value())
+                    nextOrder["orderId"].shouldNotBe(receviedOrder["orderId"])
+                    true
+                }
+                .thenCancel()
+                .verify(Duration.ofSeconds(5))
+
+            val tradesConsumer = createKafkaConsumer(infra.kafka.single().bootstrapServers, topic = "trades")
+            tradesConsumer.receive()
+                .take(1)
+                .test()
+                .expectSubscription()
+                .expectNextMatches {
+                    it.value().isJsonWithKeys("orderId", "rate")
+                    val receivedTrade = jacksonObjectMapper().readValue<Map<String,Any>>(it.value())
+                    receivedTrade["orderId"].shouldBe(receviedOrder["orderId"])
+                    true
+                }
+                .thenCancel()
+                .verify(Duration.ofSeconds(5))
         }
     }
 })

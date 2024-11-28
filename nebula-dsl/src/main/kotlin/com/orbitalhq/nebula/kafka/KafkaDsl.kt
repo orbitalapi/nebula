@@ -42,16 +42,31 @@ class ProducerBuilder(
         messageGenerator = generator
     }
 
+    fun jsonMessages(generator: () -> List<Any>) {
+        val mapper = jacksonObjectMapper()
+        messageGenerator = {
+            val payload = generator()
+            payload.map {
+                mapper.writerWithDefaultPrettyPrinter().writeValueAsString(it)
+            }
+        }
+    }
     fun jsonMessage(generator: () -> Any) {
         val mapper = jacksonObjectMapper()
         messageGenerator = {
             val payload = generator()
-            val json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload)
-            json
+            if (payload != EmptyMessage) {
+                val json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload)
+                json
+            } else {
+                EmptyMessage
+            }
         }
     }
 
-    fun build(): ProducerConfig = ProducerConfig(frequency, topic, keySerializer, valueSerializer, messageGenerator)
+    fun build(): ProducerConfig {
+        return ProducerConfig(frequency, topic, keySerializer, valueSerializer, messageGenerator)
+    }
 }
 
 // Data classes to hold configurations

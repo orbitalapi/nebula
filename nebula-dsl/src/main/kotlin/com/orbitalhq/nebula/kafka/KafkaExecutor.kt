@@ -38,7 +38,7 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
     override val type = "kafka"
     private lateinit var kafkaContainer: KafkaContainer
     private val producerJobs = mutableListOf<Job>()
-    private val producers = mutableListOf<Producer<*,*>>()
+    private val producers = mutableListOf<Producer<*, *>>()
     private val eventSource = ComponentLifecycleEventSource()
 
     override val name = config.componentName
@@ -63,11 +63,23 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
             producers.add(producer)
             val job = CoroutineScope(Dispatchers.Default).launch {
                 while (isActive) {
+                    fun writeToKafka(payload: Any) {
+                        if (payload is EmptyMessage) {
+                            // Do nothing
+                        } else {
+                            logger.info { "Emitting message to topic ${producerConfig.topic}" }
+                            producer.send(ProducerRecord(producerConfig.topic, payload))
+                        }
+                    }
 
                     try {
                         val message = producerConfig.messageGenerator()
-                        logger.info { "Emitting message to topic ${producerConfig.topic}" }
-                        producer.send(ProducerRecord(producerConfig.topic, message))
+                        if (message is Iterable<*>) {
+                            message.filterNotNull().forEach { writeToKafka(it) }
+                        } else {
+                            writeToKafka(message)
+                        }
+
                     } catch (e: Exception) {
                         logger.error(e) { "Exception thrown producing Kafka message" }
                     }
