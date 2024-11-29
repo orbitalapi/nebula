@@ -82,7 +82,5 @@ jobs:
         run: |
           docker buildx create --use --name multiarch-builder
           docker buildx inspect multiarch-builder --bootstrap
-          docker buildx build --platform linux/amd64,linux/arm64 \
-          -t orbitalhq/nebula:${{ needs.determine-version.outputs.VERSION }} \
-          --push \
+          docker buildx build --platform linux/amd64,linux/arm64 -t orbitalhq/nebula:${{ needs.determine-version.outputs.VERSION }} --push .
 
