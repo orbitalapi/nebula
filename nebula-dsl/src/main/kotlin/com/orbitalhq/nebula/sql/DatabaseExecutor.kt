@@ -66,6 +66,7 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
             id = id
 
         )
+        eventSource.running()
         return componentInfo!!
     }
 
