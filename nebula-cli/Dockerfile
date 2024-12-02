@@ -1,5 +1,5 @@
 # Use a slim Java base image
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 
 # Install Docker for TestContainers and curl for health check
 RUN apk add --no-cache \
