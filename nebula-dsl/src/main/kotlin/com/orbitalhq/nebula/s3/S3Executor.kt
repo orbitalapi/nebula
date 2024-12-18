@@ -42,7 +42,7 @@ class S3Executor(private val config: S3Config) : InfrastructureComponent<Localst
 
     override fun start():ComponentInfo<LocalstackContainerConfig> {
         localstack = LocalStackContainer(DockerImageName.parse(config.imageName))
-            .withServices(LocalStackContainer.Service.S3)
+            .withServices(LocalStackContainer.Service.S3, LocalStackContainer.Service.STS)
 
         eventSource.startContainerAndEmitEvents(localstack)
 
