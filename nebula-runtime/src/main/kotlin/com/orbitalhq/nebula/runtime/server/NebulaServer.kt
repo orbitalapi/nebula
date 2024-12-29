@@ -71,7 +71,7 @@ class NebulaServer(
                     post {
                         val script = call.receiveText()
                         val stack = scriptExecutor.toStack(script)
-                        stackExecutor.submit(stack)
+                        stackExecutor.submit(stack, startAsync = true)
                         call.respond(stack.name)
                     }
                     put("/{id}") {
