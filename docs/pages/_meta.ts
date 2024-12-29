@@ -1,5 +1,5 @@
 export default {
-  "index" : "Getting started",
-  "stacks" : "Working with stacks",
-  "examples" : "Examples",
+    "index": "Getting started",
+    "stacks": "Working with stacks",
+    "examples": "Examples",
 };
