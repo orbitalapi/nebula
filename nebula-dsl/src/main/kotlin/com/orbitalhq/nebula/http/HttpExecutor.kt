@@ -64,7 +64,6 @@ class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent<Htt
             }
         }
         server.start(wait = false)
-        eventSource.running()
         componentInfo =  ComponentInfo(
             container = null,
             componentConfig = HttpServerConfig(port),
@@ -72,6 +71,7 @@ class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent<Htt
             name = name,
             id = id
         )
+        eventSource.running()
         return componentInfo!!
     }
 
