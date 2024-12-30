@@ -3,6 +3,7 @@ package com.orbitalhq.nebula.runtime.server
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.NebulaStack
 import com.orbitalhq.nebula.StackName
 import com.orbitalhq.nebula.StackRunner
@@ -36,7 +37,8 @@ import reactor.core.publisher.Hooks
 class NebulaServer(
     private val port: Int = 8999,
     private val scriptExecutor: NebulaScriptExecutor = NebulaScriptExecutor(),
-    private val stackExecutor: StackRunner = StackRunner()
+    private val config: NebulaConfig = NebulaConfig(),
+    private val stackExecutor: StackRunner = StackRunner(config)
 ) {
     companion object {
         private val logger = KotlinLogging.logger {}

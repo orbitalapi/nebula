@@ -22,7 +22,7 @@ interface InfrastructureComponent<T> {
      * Used for display / diagnostics
      */
     val type: ComponentType
-    fun start(): ComponentInfo<T>
+    fun start(nebulaConfig: NebulaConfig): ComponentInfo<T>
     fun stop()
 
     val componentInfo: ComponentInfo<T>?

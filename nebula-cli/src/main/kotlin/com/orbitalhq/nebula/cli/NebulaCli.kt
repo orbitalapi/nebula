@@ -1,18 +1,20 @@
 package com.orbitalhq.nebula.cli
 
-import picocli.CommandLine
-import picocli.CommandLine.Command
-import picocli.CommandLine.Option
-import picocli.CommandLine.Parameters
-import com.orbitalhq.nebula.NebulaStack
+import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
 import com.orbitalhq.nebula.runtime.server.NebulaServer
-import org.testcontainers.containers.output.Slf4jLogConsumer
+import org.junit.runner.Description
+import org.junit.runners.model.Statement
+import org.testcontainers.DockerClientFactory
+import org.testcontainers.containers.Network
+import picocli.CommandLine
+import picocli.CommandLine.Command
+import picocli.CommandLine.Option
 import picocli.CommandLine.ParameterException
+import picocli.CommandLine.Parameters
 import java.io.File
 import java.lang.Thread.sleep
-import kotlin.script.experimental.api.ResultValue
 import java.util.concurrent.Callable
 
 @Command(
@@ -35,10 +37,20 @@ class Nebula : Callable<Int> {
     @Option(names = ["-v", "--verbose"], description = ["Enable verbose output"])
     private var verbose: Boolean = false
 
+    @Option(names = ["--network"], description = ["The name of the docker network created"], defaultValue = "\${NEBULA_NETWORK:-nebula_network}")
+    lateinit var networkName: String
+
     override fun call(): Int {
+        val networkOrError = discoverActualNetworkName()
+        if (networkOrError.isFailure) {
+            return spec.exitCodeOnExecutionException()
+        }
+        val network = networkOrError.getOrThrow()
+        spec.commandLine().out.println("Nebula using network name $networkName maps to ${network.id}")
+        val nebulaConfig = NebulaConfig(networkName, network)
         when {
-            scriptFile != null -> return executeScript()
-            httpPort != null -> return startHttpServer()
+            scriptFile != null -> return executeScript(nebulaConfig)
+            httpPort != null -> return startHttpServer(nebulaConfig)
             else -> throw ParameterException(
                 spec.commandLine(),
                 "Either a script file or --http option must be provided"
@@ -46,7 +58,27 @@ class Nebula : Callable<Int> {
         }
     }
 
-    private fun executeScript(): Int {
+    private fun discoverActualNetworkName():Result<Network> {
+        val dockerClient = DockerClientFactory.lazyClient()
+        val networks = dockerClient.listNetworksCmd().withNameFilter(networkName).exec()
+        return when (networks.size) {
+            0 -> {
+                spec.commandLine().out.println("A network named $networkName does not exist - will create a temporary, isolated network")
+                Result.success(Network.newNetwork())
+            }
+            1 -> {
+                val network = networks.single()
+                return Result.success(ExistingDockerNetwork(network.name))
+            }
+            else -> {
+                spec.commandLine().err.println("Multiple networks were found matching the provided name $networkName - provide a more specific name, or remove the other networks")
+                networks.forEach { spec.commandLine().err.println(it.name) }
+                Result.failure(IllegalArgumentException("Multiple networks were found"))
+            }
+        }
+    }
+
+    private fun executeScript(nebulaConfig: NebulaConfig): Int {
         val file = scriptFile ?: throw ParameterException(spec.commandLine(), "Script file is required")
         if (!file.exists() || !file.isFile || !file.canRead()) {
             throw ParameterException(spec.commandLine(), "${file.toPath()} not found or cannot be read")
@@ -54,7 +86,8 @@ class Nebula : Callable<Int> {
 
         val scriptRunner = NebulaScriptExecutor()
         val stack = scriptRunner.runScript(file)
-        val stackRunner = StackRunner()
+
+        val stackRunner = StackRunner(nebulaConfig)
         stackRunner.submit(stack)
         Runtime.getRuntime().addShutdownHook(Thread {
             if (verbose) spec.commandLine().out.println("Shutting down services...")
@@ -68,10 +101,10 @@ class Nebula : Callable<Int> {
         }
     }
 
-    private fun startHttpServer(): Int {
+    private fun startHttpServer(nebulaConfig: NebulaConfig): Int {
         // Placeholder function for HTTP server
         spec.commandLine().out.println("Starting HTTP server on port $httpPort")
-        NebulaServer(httpPort!!).start()
+        NebulaServer(httpPort!!, config = nebulaConfig).start()
         spec.commandLine().out.println("Server running - Press Ctrl+C to stop")
         while (true) {
             sleep(200)
@@ -80,3 +113,17 @@ class Nebula : Callable<Int> {
 }
 
 fun main(args: Array<String>): Unit = System.exit(CommandLine(Nebula()).execute(*args))
+
+class ExistingDockerNetwork(private val id: String) : Network {
+    override fun close() {
+    }
+
+    override fun apply(base: Statement?, description: Description?): Statement? {
+        return null
+    }
+
+    override fun getId(): String {
+        return id
+    }
+
+}

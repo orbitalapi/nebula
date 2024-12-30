@@ -39,6 +39,11 @@ class DatabaseBuilder(private val container: JdbcDatabaseContainer<*>, private v
 }
 
 data class DatabaseConfig(
+    /**
+     * The base configuration of the container.
+     * The actual container used at runtime is configured in the executor, to configure
+     * things like networking and network aliases
+     */
     val container: JdbcDatabaseContainer<*>,
     val dialect: SQLDialect,
     val tables: List<TableConfig>,

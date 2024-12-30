@@ -1,11 +1,11 @@
 package com.orbitalhq.nebula.kafka
 
 import com.orbitalhq.nebula.InfrastructureComponent
+import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.containerInfoFrom
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
-import com.orbitalhq.nebula.core.ComponentName
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
@@ -51,8 +51,10 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
     override var componentInfo: ComponentInfo<KafkaContainerConfig>? = null
         private set
 
-    override fun start(): ComponentInfo<KafkaContainerConfig> {
+    override fun start(nebulaConfig: NebulaConfig): ComponentInfo<KafkaContainerConfig> {
         kafkaContainer = KafkaContainer(DockerImageName.parse(config.imageName))
+            .withNetwork(nebulaConfig.network)
+            .withNetworkAliases(config.componentName)
         eventSource.startContainerAndEmitEvents(kafkaContainer)
 
         val bootstrapServers = kafkaContainer.bootstrapServers

@@ -1,6 +1,7 @@
 package com.orbitalhq.nebula.hazelcast
 
 import com.orbitalhq.nebula.InfrastructureComponent
+import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.containerInfoFrom
 import com.orbitalhq.nebula.core.ComponentInfo
@@ -33,12 +34,14 @@ class HazelcastExecutor(private val config: HazelcastConfig) : InfrastructureCom
     override val type: ComponentType = "hazelcast"
     private val eventSource = ComponentLifecycleEventSource()
 
-    override fun start(): ComponentInfo<HazelcastContainerConfig> {
+    override fun start(nebulaConfig: NebulaConfig): ComponentInfo<HazelcastContainerConfig> {
         eventSource.starting()
         container = GenericContainer(DockerImageName.parse(config.imageName))
             .withExposedPorts(5701)
+            .withNetwork(nebulaConfig.network)
+            .withNetworkAliases(config.componentName)
         container.waitingFor(Wait.forListeningPort())
-        container.start()
+        eventSource.startContainerAndEmitEvents(container)
 
         componentInfo = ComponentInfo(
             containerInfoFrom(container),

@@ -3,12 +3,18 @@ package com.orbitalhq.nebula
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.StackStateEvent
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.junit.runner.Description
+import org.junit.runners.model.Statement
+import org.testcontainers.containers.Network
 import reactor.core.publisher.Flux
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
-
-class StackRunner() {
+data class NebulaConfig(
+    val networkName: String = "nebula_network",
+    val network: Network = Network.newNetwork()
+)
+class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
     private val logger = KotlinLogging.logger {}
     val stacks = ConcurrentHashMap<StackName, NebulaStack>()
     private val _stackState = ConcurrentHashMap<StackName, Map<String, ComponentInfo<*>>>()
@@ -50,7 +56,7 @@ class StackRunner() {
             logger.info { event.toString() }
         }
         logger.info { "Starting ${stack.name}" }
-        val state: Map<String, ComponentInfo<out Any?>> = stack.startComponents()
+        val state: Map<String, ComponentInfo<out Any?>> = stack.startComponents(config)
 
         _stackState[name] = state
     }

@@ -41,10 +41,10 @@ class NebulaStack(
         return component
     }
 
-    fun startComponents(): Map<String, ComponentInfo<out Any?>> {
+    fun startComponents(config: NebulaConfig): Map<String, ComponentInfo<out Any?>> {
         stackStateEventSource.listenForEvents(name, components)
         return components.associate { component ->
-            component.type to component.start()
+            component.type to component.start(config)
         }
     }
 

@@ -1,11 +1,11 @@
 package com.orbitalhq.nebula.sql
 
 import com.orbitalhq.nebula.InfrastructureComponent
+import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.containerInfoFrom
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
-import com.orbitalhq.nebula.core.ComponentName
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
@@ -24,8 +24,7 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
     }
     override val type = config.type
 
-    val databaseContainer: JdbcDatabaseContainer<*>
-        get() = config.container
+    private lateinit var databaseContainer: JdbcDatabaseContainer<*>
     lateinit var dataSource: HikariDataSource
         private set
 
@@ -44,8 +43,10 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
     override var componentInfo: ComponentInfo<DatabaseContainerConfig>? = null
         private set
 
-    override fun start(): ComponentInfo<DatabaseContainerConfig> {
-        databaseContainer.withDatabaseName(config.databaseName)
+    override fun start(nebulaConfig: NebulaConfig): ComponentInfo<DatabaseContainerConfig> {
+        databaseContainer = config.container.withDatabaseName(config.databaseName)
+            .withNetwork(nebulaConfig.network)
+            .withNetworkAliases(config.componentName)
         eventSource.startContainerAndEmitEvents(databaseContainer)
 
         setupDataSource()
