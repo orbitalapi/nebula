@@ -59,7 +59,10 @@ class MongoExecutor(private val config: MongoConfig) : InfrastructureComponent<M
                     data.entries.forEach { entry -> document.append(entry.key, entry.value) }
                     document
                 }
-                mongoCollection.insertMany(documents)
+                if (documents.isNotEmpty()) {
+                    mongoCollection.insertMany(documents)
+                }
+
                 logger.info { "Inserted ${documents.size} documents to collection ${collection.name}" }
             }
 
