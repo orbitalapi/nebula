@@ -27,6 +27,9 @@ class BucketBuilder(private val name: String) {
     fun file(name: String, content: String) {
         resources.add(InlineFileResource(name, content))
     }
+    fun file(name: String, content: Sequence<String>) {
+        resources.add(SequenceResource(name, content))
+    }
 
     fun file(path: String) {
         resources.add(FileResource(path))
@@ -44,3 +47,11 @@ data class BucketConfig(val name: String, val resources: List<S3Resource>)
 sealed class S3Resource
 data class InlineFileResource(val name: String, val content: String) : S3Resource()
 data class FileResource(val path: String) : S3Resource()
+data class SequenceResource(
+    val name: String,
+    val sequence: Sequence<String>,
+    val contentType: String = "text/csv",
+    // 5MB default - don't use a value smaller than 5MB, which is the minimum
+    // size supported by the Multipart uploader SDK
+    val bufferSizeInBytes: Int = 5 * 1024 * 1204
+) : S3Resource()

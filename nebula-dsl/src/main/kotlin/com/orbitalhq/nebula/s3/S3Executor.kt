@@ -89,8 +89,14 @@ class S3Executor(private val config: S3Config) : InfrastructureComponent<Localst
             when (resource) {
                 is InlineFileResource -> uploadInlineFile(bucketConfig.name, resource)
                 is FileResource -> uploadFile(bucketConfig.name, resource)
+                is SequenceResource -> uploadSequence(bucketConfig.name, resource)
             }
         }
+    }
+
+    private fun uploadSequence(bucketName: String, resource: SequenceResource) {
+        S3SequenceUploader(bucketName, resource, s3Client)
+            .upload()
     }
 
     private fun uploadInlineFile(bucketName: String, resource: InlineFileResource) {
