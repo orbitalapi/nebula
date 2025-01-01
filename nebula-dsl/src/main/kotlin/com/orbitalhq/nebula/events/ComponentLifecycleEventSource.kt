@@ -57,10 +57,11 @@ class ComponentLifecycleEventSource(private val initialState: ComponentLifecycle
         emitNext(LifecycleEventWithMessage(ComponentState.Failed, message))
     }
 
-    fun startContainerAndEmitEvents(container: GenericContainer<*>) {
+    fun startContainerAndEmitEvents(container: GenericContainer<*>, initStep:() -> Unit = {}) {
         starting()
         try {
             container.start()
+            initStep()
             running()
         } catch (e: Exception) {
             failed(e.message ?: e::class.simpleName!!)

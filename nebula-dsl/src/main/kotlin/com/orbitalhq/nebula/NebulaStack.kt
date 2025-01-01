@@ -6,6 +6,7 @@ import com.orbitalhq.nebula.events.StackStateEventSource
 import com.orbitalhq.nebula.hazelcast.HazelcastDsl
 import com.orbitalhq.nebula.http.HttpDsl
 import com.orbitalhq.nebula.kafka.KafkaDsl
+import com.orbitalhq.nebula.mongo.MongoDsl
 import com.orbitalhq.nebula.s3.S3Dsl
 import com.orbitalhq.nebula.sql.SqlDsl
 import com.orbitalhq.nebula.utils.NameGenerator
@@ -17,7 +18,7 @@ typealias StackName = String
 class NebulaStack(
     val name: StackName = NameGenerator.generateName(),
     initialComponents: List<InfrastructureComponent<*>> = emptyList()
-) : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl, HazelcastDsl {
+) : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl, HazelcastDsl, MongoDsl {
     private val _components = mutableListOf<InfrastructureComponent<*>>()
 
     private val isStarted = AtomicBoolean(false)
