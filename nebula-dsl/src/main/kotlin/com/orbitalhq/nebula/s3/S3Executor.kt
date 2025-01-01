@@ -73,6 +73,9 @@ class S3Executor(private val config: S3Config) : InfrastructureComponent<Localst
             id = id
 
         )
+
+        // re-emit the running event now we're fully configured
+        eventSource.running()
         return componentInfo!!
     }
 
