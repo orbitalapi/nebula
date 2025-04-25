@@ -9,6 +9,7 @@ import com.orbitalhq.nebula.kafka.KafkaDsl
 import com.orbitalhq.nebula.mongo.MongoDsl
 import com.orbitalhq.nebula.s3.S3Dsl
 import com.orbitalhq.nebula.sql.SqlDsl
+import com.orbitalhq.nebula.taxi.TaxiPublisherDsl
 import com.orbitalhq.nebula.utils.NameGenerator
 import reactor.core.publisher.Flux
 import java.util.concurrent.atomic.AtomicBoolean
@@ -18,7 +19,7 @@ typealias StackName = String
 class NebulaStack(
     val name: StackName = NameGenerator.generateName(),
     initialComponents: List<InfrastructureComponent<*>> = emptyList()
-) : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl, HazelcastDsl, MongoDsl {
+) : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl, HazelcastDsl, MongoDsl, TaxiPublisherDsl {
     private val _components = mutableListOf<InfrastructureComponent<*>>()
 
     private val isStarted = AtomicBoolean(false)

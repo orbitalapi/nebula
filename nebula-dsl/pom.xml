@@ -10,6 +10,11 @@
     </parent>
 
     <artifactId>nebula-dsl</artifactId>
+    <properties>
+        <wire.version>5.3.1</wire.version>
+        <okio.version>3.11.0</okio.version>
+        <orbital.version>0.35.0-SNAPSHOT</orbital.version>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -24,6 +29,74 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
+        </dependency>
+
+        <!-- Taxi publishing -->
+        <!-- Can we move this out? Maybe use Kotlin scriptings @Dependency annotations? -->
+        <dependency>
+            <groupId>com.orbitalhq</groupId>
+            <artifactId>schema-http-publisher</artifactId>
+            <version>${orbital.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.orbitalhq</groupId>
+            <artifactId>schema-publisher-api</artifactId>
+            <version>${orbital.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.orbitalhq</groupId>
+            <artifactId>schema-publisher-cli</artifactId>
+            <version>${orbital.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.ktor</groupId>
+            <artifactId>ktor-server-test-host-jvm</artifactId>
+            <version>${ktor.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.ktor</groupId>
+            <artifactId>ktor-client-content-negotiation-jvm</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.ktor</groupId>
+            <artifactId>ktor-server-core-jvm</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.ktor</groupId>
+            <artifactId>ktor-server-netty-jvm</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.ktor</groupId>
+            <artifactId>ktor-server-content-negotiation-jvm</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.ktor</groupId>
+            <artifactId>ktor-server-host-common-jvm</artifactId>
+        </dependency>
+        <!-- protobuf handling -->
+        <!-- Wire Core -->
+        <dependency>
+            <groupId>com.squareup.wire</groupId>
+            <artifactId>wire-runtime-jvm</artifactId>
+        </dependency>
+
+        <!-- Wire Schema - needed for dynamic schema loading -->
+        <dependency>
+            <groupId>com.squareup.wire</groupId>
+            <artifactId>wire-schema-jvm</artifactId>
+        </dependency>
+
+        <!-- Okio - Wire's underlying I/O library -->
+        <dependency>
+            <groupId>com.squareup.okio</groupId>
+            <artifactId>okio-jvm</artifactId>
+        </dependency>
+
+        <!-- Okio Fake FileSystem - for virtual file system support -->
+        <dependency>
+            <groupId>com.squareup.okio</groupId>
+            <artifactId>okio-fakefilesystem-jvm</artifactId>
         </dependency>
 
         <!-- Kafka -->
@@ -170,6 +243,26 @@
             <version>5.0.1</version>
         </dependency>
     </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.squareup.wire</groupId>
+                <artifactId>wire-bom</artifactId>
+                <version>${wire.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okio</groupId>
+                <artifactId>okio-bom</artifactId>
+                <version>${okio.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <build>
         <plugins>
             <plugin>

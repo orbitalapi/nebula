@@ -126,8 +126,8 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
         // This would include setting up serializers and other configurations
         val props = Properties().apply {
             put(BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
-            put(KEY_SERIALIZER_CLASS_CONFIG, producerConfig.keySerializer.java.name)
-            put(VALUE_SERIALIZER_CLASS_CONFIG, producerConfig.valueSerializer.java.name)
+            put(KEY_SERIALIZER_CLASS_CONFIG, producerConfig.keySerializer.name)
+            put(VALUE_SERIALIZER_CLASS_CONFIG, producerConfig.valueSerializer.name)
         }
         return KafkaProducer(props)
     }

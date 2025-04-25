@@ -31,5 +31,4 @@ object NebulaCompilationConfiguration : ScriptCompilationConfiguration({
         dependenciesFromCurrentContext(wholeClasspath = true)
     }
     defaultImports(allDefaultImports)
-
 })

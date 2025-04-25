@@ -50,13 +50,7 @@ data class StackStateEvent(
     val stackName: String,
     val stateCounts: Map<ComponentState, Int>,
     val stackState: NebulaStackState
-) {
-    init {
-        if (stackState.values.first().size != 4) {
-            println()
-        }
-    }
-}
+)
 
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")

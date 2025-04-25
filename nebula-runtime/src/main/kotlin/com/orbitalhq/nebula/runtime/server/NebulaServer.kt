@@ -20,16 +20,8 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
-import io.rsocket.kotlin.RSocketRequestHandler
 import io.rsocket.kotlin.ktor.server.RSocketSupport
-import io.rsocket.kotlin.ktor.server.rSocket
-import io.rsocket.kotlin.payload.Payload
-import io.rsocket.kotlin.payload.buildPayload
-import io.rsocket.kotlin.payload.data
 import kotlinx.coroutines.channels.consumeEach
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.runBlocking
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Hooks
@@ -51,14 +43,16 @@ class NebulaServer(
 
     }
 
-    private val objectMapper = jacksonObjectMapper()
+    private val objectMapper = jacksonObjectMapper().findAndRegisterModules()
     fun start(wait: Boolean = true): NettyApplicationEngine {
         return embeddedServer(Netty, port = port) {
             install(WebSockets)
             install(RSocketSupport)
             install(ContentNegotiation) {
                 jackson {
+                    findAndRegisterModules()
                     configure(SerializationFeature.INDENT_OUTPUT, true)
+                    configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
                 }
             }
 
@@ -90,6 +84,7 @@ class NebulaServer(
                     }
 
                     get {
+                        val j = objectMapper
                         call.respond(stackExecutor.stateState)
                     }
 
