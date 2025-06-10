@@ -13,7 +13,7 @@
     <properties>
         <wire.version>5.3.1</wire.version>
         <okio.version>3.11.0</okio.version>
-        <orbital.version>0.35.0-SNAPSHOT</orbital.version>
+        <orbital.version>0.36.0-SNAPSHOT</orbital.version>
     </properties>
 
     <dependencies>
@@ -30,6 +30,12 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+            <version>1.11.4</version>
+        </dependency>
+
 
         <!-- Taxi publishing -->
         <!-- Can we move this out? Maybe use Kotlin scriptings @Dependency annotations? -->
