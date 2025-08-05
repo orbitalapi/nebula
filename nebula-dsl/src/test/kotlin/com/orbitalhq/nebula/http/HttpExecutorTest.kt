@@ -27,6 +27,9 @@ class HttpExecutorTest : DescribeSpec({
                     get("/hello") { call ->
                         call.respondText("Hello, World!")
                     }
+                    get("/") { call ->
+                        call.respond(HttpStatusCode.NoContent)
+                    }
                     post("/echo") { call ->
                         val body = call.receiveText()
                         call.respondText(body)
