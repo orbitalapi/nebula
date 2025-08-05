@@ -48,13 +48,22 @@
 
     <repositories>
         <repository>
-            <id>mavenCentral</id>
-            <url>https://repo1.maven.org/maven2/</url>
+            <id>orbital-snapshots</id>
+            <url>https://repo.orbitalhq.com/snapshot</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
         </repository>
         <repository>
-            <id>maven_central</id>
-            <name>Maven Central</name>
-            <url>https://repo.maven.apache.org/maven2/</url>
+            <id>vyne</id>
+            <url>https://repo.orbitalhq.com/release</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>jooq-pro</id>
+            <url>https://repo.jooq.org/repo</url>
         </repository>
     </repositories>
 
