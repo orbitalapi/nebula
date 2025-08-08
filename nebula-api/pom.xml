@@ -21,5 +21,15 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
+        <!-- don't bundle Kotlin stdlib - it's provided by the things that conume this API.
+        Also, since this API is consumed by things with differing API versions (1.9.x vs 2.1.x),
+        bundling this causes problems
+        -->
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+            <version>${kotlin.version}</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 </project>
