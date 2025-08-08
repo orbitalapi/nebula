@@ -76,9 +76,11 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
         logger.info { "Shutting down ${spec.name}" }
         spec.components.forEach {
             try {
+                logger.info { "Stopping ${it.name}" }
                 it.stop()
+                logger.info { "Stopped ${it.name} successfully" }
             } catch (e:Exception) {
-                logger.error(e) { "Error during shut down ${spec.name}" }
+                logger.error(e) { "Error during shut down of component ${it.name} in spec ${spec.name}" }
             }
         }
     }
