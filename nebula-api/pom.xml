@@ -6,11 +6,15 @@
     <parent>
         <groupId>com.orbitalhq.nebula</groupId>
         <artifactId>nebula-parent</artifactId>
-        <version>1.0.0-M1</version>
+        <version>1.0.0-M2</version>
     </parent>
 
     <artifactId>nebula-api</artifactId>
 
+    <properties>
+        <!-- The API should be published with 1.9, as it's consumed in projects that aren't yet upgraded to 2.x -->
+        <kotlin.version>1.9.24</kotlin.version>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -18,5 +22,4 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
     </dependencies>
-
 </project>

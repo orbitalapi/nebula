@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.orbitalhq.nebula</groupId>
         <artifactId>nebula-parent</artifactId>
-        <version>1.0.0-M1</version>
+        <version>1.0.0-M2</version>
     </parent>
 
     <artifactId>nebula-runtime</artifactId>
@@ -67,7 +67,7 @@
         <dependency>
             <groupId>com.orbitalhq.nebula</groupId>
             <artifactId>nebula-dsl</artifactId>
-            <version>1.0.0-M1</version>
+            <version>1.0.0-M2</version>
         </dependency>
         <dependency>
             <groupId>io.ktor</groupId>
