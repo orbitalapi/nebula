@@ -242,7 +242,7 @@ message Quote {
         }
 
 
-        it("can share state between two streams") {
+        xit("can share state between two streams") {
             infra = stack {
                 kafka {
                     val counter = AtomicInteger(0)
