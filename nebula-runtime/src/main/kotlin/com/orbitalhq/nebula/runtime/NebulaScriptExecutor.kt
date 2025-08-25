@@ -36,7 +36,9 @@ class NebulaScriptExecutor {
             is ResultValue.Error -> {
                 error(returnValue.error)
             }
-
+            is ResultValue.Unit -> {
+                error("Expected Nebula script to return a NebulaStack. However, it evaluated without errors, but returned Unit. This indicates an issue with the Nebula script file. Ensure that the last code block in the script return is a stack { } declaration")
+            }
             else -> {
                 error("Unhandled branch: ${returnValue::class.simpleName}")
             }
