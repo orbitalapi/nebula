@@ -2,6 +2,7 @@ package com.orbitalhq.nebula.runtime
 
 import com.orbitalhq.nebula.NebulaScript
 import com.orbitalhq.nebula.NebulaStack
+import com.orbitalhq.nebula.NebulaStackWithSource
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.io.File
 import kotlin.script.experimental.api.EvaluationResult
@@ -50,8 +51,14 @@ class NebulaScriptExecutor {
         resultWithDiagnostics.reports.filter { it.severity == ScriptDiagnostic.Severity.ERROR }.forEach { logger.error { it.toString() } }
     }
 
+    @Deprecated("call toStackWithSource")
     fun toStack(string: String): NebulaStack {
         val source = string.toScriptSource()
         return runScript(source)
+    }
+    fun toStackWithSource(string: String): NebulaStackWithSource {
+        val source = string.toScriptSource()
+        val stack = runScript(source)
+        return NebulaStackWithSource(stack, string)
     }
 }

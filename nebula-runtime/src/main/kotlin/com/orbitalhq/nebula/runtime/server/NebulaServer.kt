@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.NebulaStack
+import com.orbitalhq.nebula.NebulaStackWithSource
 import com.orbitalhq.nebula.StackName
 import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
@@ -66,7 +67,7 @@ class NebulaServer(
                     // Create a stack without an id -- an id is assigned
                     post {
                         val script = call.receiveText()
-                        val stack = scriptExecutor.toStack(script)
+                        val stack = scriptExecutor.toStackWithSource(script)
                         stackExecutor.submit(stack, startAsync = true)
                         call.respond(stack.name)
                     }
@@ -76,8 +77,8 @@ class NebulaServer(
                             "Missing or malformed id"
                         )
                         val script = call.receiveText()
-                        val stack = scriptExecutor.toStack(script).let {
-                            NebulaStack(name = id, initialComponents = it.components)
+                        val stack = scriptExecutor.toStackWithSource(script).let { stack ->
+                            stack.withName(id)
                         }
                         stackExecutor.submit(stack)
                         call.respond(stack.name)
@@ -125,9 +126,9 @@ class NebulaServer(
         }.start(wait = wait)
     }
 
-    private fun compile(updateStacksRequest: UpdateStackRSocketRequest): Map<StackName, NebulaStack> {
+    private fun compile(updateStacksRequest: UpdateStackRSocketRequest): Map<StackName, NebulaStackWithSource> {
         return updateStacksRequest.stacks.mapValues { (key, stackScript) ->
-            scriptExecutor.toStack(stackScript).withName(key)
+            scriptExecutor.toStackWithSource(stackScript).withName(key)
         }
     }
 
