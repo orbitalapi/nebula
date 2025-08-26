@@ -6,7 +6,9 @@ import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.containerInfoFrom
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
+import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
+import com.orbitalhq.nebula.utils.updateHostReferences
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -151,4 +153,8 @@ data class DatabaseContainerConfig(
     val username: String,
     val password: String,
     val port: String
-)
+) : HostNameAwareContainerConfig<DatabaseContainerConfig> {
+    override fun updateHostReferences(containerHost: String, publicHost: String): DatabaseContainerConfig {
+        return copy(jdbcUrl = jdbcUrl.updateHostReferences(containerHost, publicHost))
+    }
+}

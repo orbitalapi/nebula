@@ -99,6 +99,10 @@ class NebulaServer(
                     }
                 }
                 webSocket("/stream/stacks") {
+                    val call = call
+                    // We capture the host on the request. That's the address that the caller is contacting this server on.
+                    // We can use this later to rewrite references to the docker containers using the correct host names
+                    val host = call.request.host()
                     incoming.consumeEach { frame ->
                         require(frame is Frame.Text) { "Only text frames supported" }
                         val payloadJson = frame.readText()
@@ -113,9 +117,10 @@ class NebulaServer(
                         }
                         Flux.merge(eventStreams)
                             .subscribe { event ->
+                                val eventWithHostReferences = event.updateHostReferences(host)
                                 logger.info { "Emitting stack status event for stack ${event.stackName}" }
                                 runBlocking {
-                                    val stackStatusJson = objectMapper.writeValueAsString(event)
+                                    val stackStatusJson = objectMapper.writeValueAsString(eventWithHostReferences)
                                     send(Frame.Text(stackStatusJson))
                                 }
 

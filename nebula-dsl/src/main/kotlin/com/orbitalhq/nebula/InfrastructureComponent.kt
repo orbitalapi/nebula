@@ -41,5 +41,6 @@ fun containerInfoFrom(container: GenericContainer<*>):ContainerInfo {
         containerId = container.containerId,
         imageName = container.dockerImageName,
         containerName = container.containerName,
+        host = container.host
     )
 }

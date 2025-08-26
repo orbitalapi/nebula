@@ -6,7 +6,9 @@ import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.containerInfoFrom
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
+import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
+import com.orbitalhq.nebula.utils.updateHostReferences
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -168,4 +170,8 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
     }
 }
 
-data class KafkaContainerConfig(val bootstrapServers: String)
+data class KafkaContainerConfig(val bootstrapServers: String) : HostNameAwareContainerConfig<KafkaContainerConfig> {
+    override fun updateHostReferences(containerHost: String, publicHost: String): KafkaContainerConfig {
+        return copy(bootstrapServers = bootstrapServers.updateHostReferences(containerHost, publicHost))
+    }
+}

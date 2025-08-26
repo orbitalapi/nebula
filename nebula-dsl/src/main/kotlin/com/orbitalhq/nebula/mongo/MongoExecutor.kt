@@ -9,7 +9,9 @@ import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.core.ComponentName
 import com.orbitalhq.nebula.core.ComponentType
+import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
+import com.orbitalhq.nebula.utils.updateHostReferences
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.bson.Document
 import org.testcontainers.containers.MongoDBContainer
@@ -87,4 +89,12 @@ class MongoExecutor(private val config: MongoConfig) : InfrastructureComponent<M
 data class MongoContainerConfig(
     val connectionString: String,
     val port: Int
-)
+) : HostNameAwareContainerConfig<MongoContainerConfig> {
+    override fun updateHostReferences(containerHost: String, publicHost: String): MongoContainerConfig {
+        return MongoContainerConfig(
+            connectionString.updateHostReferences(containerHost, publicHost),
+            port
+        )
+    }
+
+}

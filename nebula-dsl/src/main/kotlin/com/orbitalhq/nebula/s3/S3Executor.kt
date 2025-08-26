@@ -6,7 +6,9 @@ import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.containerInfoFrom
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
+import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
+import com.orbitalhq.nebula.utils.updateHostReferences
 import org.testcontainers.containers.localstack.LocalStackContainer
 import org.testcontainers.utility.DockerImageName
 import reactor.core.publisher.Flux
@@ -140,4 +142,9 @@ data class LocalstackContainerConfig(
     val accessKey: String,
     val secretKey: String,
     val endpointOverride: String
-)
+) : HostNameAwareContainerConfig<LocalstackContainerConfig> {
+    override fun updateHostReferences(containerHost: String, publicHost: String): LocalstackContainerConfig {
+        return copy(endpointOverride = endpointOverride.updateHostReferences(containerHost, publicHost))
+    }
+
+}
