@@ -14,16 +14,21 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.apache.kafka.clients.admin.AdminClient
+import org.apache.kafka.clients.admin.AdminClientConfig
+import org.apache.kafka.clients.admin.NewTopic
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.producer.Producer
 import org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG
 import org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG
 import org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.errors.TopicExistsException
 import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.utility.DockerImageName
 import reactor.core.publisher.Flux
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 val StackRunner.kafka: List<KafkaExecutor>
     get() {
@@ -59,6 +64,9 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
 
         val bootstrapServers = kafkaContainer.bootstrapServers
         logger.info { "Kafka container started - bootstrap servers: $bootstrapServers" }
+
+        // Create topics with specified partitions
+        createTopics(bootstrapServers, config.producers)
 
         config.producers.forEach { producerConfig ->
             val producer = createKafkaProducer(bootstrapServers, producerConfig)
@@ -130,6 +138,33 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
             put(VALUE_SERIALIZER_CLASS_CONFIG, producerConfig.valueSerializer.name)
         }
         return KafkaProducer(props)
+    }
+
+    private fun createTopics(bootstrapServers: String, producers: List<ProducerConfig>) {
+        val adminProps = Properties().apply {
+            put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
+        }
+        
+        AdminClient.create(adminProps).use { adminClient ->
+            // Group topics by name to handle duplicates and use max partitions
+            val topicConfigs = producers.groupBy { it.topic }
+                .mapValues { (_, configs) -> configs.maxOf { it.partitions } }
+                .map { (topicName, partitions) ->
+                    NewTopic(topicName, partitions, 1.toShort()) // replication factor of 1 for single broker
+                }
+            
+            if (topicConfigs.isNotEmpty()) {
+                try {
+                    val result = adminClient.createTopics(topicConfigs)
+                    result.all().get(30, TimeUnit.SECONDS) // Wait for completion with timeout
+                    logger.info { "Created topics: ${topicConfigs.map { "${it.name()}(${it.numPartitions()} partitions)" }}" }
+                } catch (e: TopicExistsException) {
+                    logger.warn(e) { "Some topics already exist: ${e.message}" }
+                } catch (e: Exception) {
+                    logger.error(e) { "Failed to create topics due to unexpected error: ${e.message}" }
+                }
+            }
+        }
     }
 }
 
