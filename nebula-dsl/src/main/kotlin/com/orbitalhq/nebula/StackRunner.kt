@@ -106,7 +106,7 @@ fun NebulaStackWithSource.start(): StackRunner {
  */
 fun NebulaStack.start(): StackRunner {
     val executor = StackRunner()
-    val stackWithSource = NebulaStackWithSource(this, "Source not provided - Random UUID follows - ${UUID.randomUUID().toString()}" )
+    val stackWithSource = NebulaStackWithSource(this, "Source not provided - Random UUID follows - ${UUID.randomUUID()}" )
     executor.submit(stackWithSource)
     return executor
 }
