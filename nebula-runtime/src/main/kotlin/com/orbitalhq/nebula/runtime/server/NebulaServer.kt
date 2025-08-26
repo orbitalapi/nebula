@@ -3,6 +3,7 @@ package com.orbitalhq.nebula.runtime.server
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.NebulaStack
 import com.orbitalhq.nebula.NebulaStackWithSource
@@ -67,7 +68,7 @@ class NebulaServer(
                     // Create a stack without an id -- an id is assigned
                     post {
                         val script = call.receiveText()
-                        val stack = scriptExecutor.toStackWithSource(script)
+                        val stack = scriptExecutor.toStackWithSource(script, call.hostConfig())
                         stackExecutor.submit(stack, startAsync = true)
                         call.respond(stack.name)
                     }
@@ -77,7 +78,7 @@ class NebulaServer(
                             "Missing or malformed id"
                         )
                         val script = call.receiveText()
-                        val stack = scriptExecutor.toStackWithSource(script).let { stack ->
+                        val stack = scriptExecutor.toStackWithSource(script, call.hostConfig()).let { stack ->
                             stack.withName(id)
                         }
                         stackExecutor.submit(stack)
@@ -111,7 +112,7 @@ class NebulaServer(
                         val updateStacksRequest =
                             objectMapper.readValue<UpdateStackRSocketRequest>(payloadJson)
 
-                        val stackMap = compile(updateStacksRequest)
+                        val stackMap = compile(updateStacksRequest, call.hostConfig())
                         val eventStreams = stackMap.map { (name, stack) ->
                             stackExecutor.submit(stack, name, startAsync = true)
                         }
@@ -131,9 +132,9 @@ class NebulaServer(
         }.start(wait = wait)
     }
 
-    private fun compile(updateStacksRequest: UpdateStackRSocketRequest): Map<StackName, NebulaStackWithSource> {
+    private fun compile(updateStacksRequest: UpdateStackRSocketRequest, hostConfig: HostConfig): Map<StackName, NebulaStackWithSource> {
         return updateStacksRequest.stacks.mapValues { (key, stackScript) ->
-            scriptExecutor.toStackWithSource(stackScript).withName(key)
+            scriptExecutor.toStackWithSource(stackScript, hostConfig).withName(key)
         }
     }
 
@@ -144,3 +145,7 @@ data class StackEventStreamRequest(val stackId: StackName)
 typealias StackScript = String
 
 data class UpdateStackRSocketRequest(val stacks: Map<StackName, StackScript>)
+
+fun ApplicationCall.hostConfig():HostConfig {
+    return HostConfig(listOf(this.request.host()))
+}

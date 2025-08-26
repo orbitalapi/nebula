@@ -1,5 +1,6 @@
 package com.orbitalhq.nebula.cli
 
+import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.NebulaStackWithSource
 import com.orbitalhq.nebula.StackRunner
@@ -87,7 +88,7 @@ class Nebula : Callable<Int> {
 
         val scriptRunner = NebulaScriptExecutor()
         val stack = scriptRunner.runScript(file)
-        val stackWithSource = NebulaStackWithSource(stack, file.readText())
+        val stackWithSource = NebulaStackWithSource(stack, file.readText(), HostConfig.UNKNOWN)
 
         val stackRunner = StackRunner(nebulaConfig)
         stackRunner.submit(stackWithSource)

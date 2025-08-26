@@ -1,5 +1,6 @@
 package com.orbitalhq.nebula.kafka
 
+import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.StackRunner
@@ -10,6 +11,7 @@ import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.utils.updateHostReferences
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.http.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -58,10 +60,15 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
     override var componentInfo: ComponentInfo<KafkaContainerConfig>? = null
         private set
 
-    override fun start(nebulaConfig: NebulaConfig): ComponentInfo<KafkaContainerConfig> {
+    override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig): ComponentInfo<KafkaContainerConfig> {
+
         kafkaContainer = KafkaContainer(DockerImageName.parse(config.imageName))
+            .let { container ->
+                configureExternalListenerAddresses(hostConfig, container)
+            }
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
+
         eventSource.startContainerAndEmitEvents(kafkaContainer)
 
         val bootstrapServers = kafkaContainer.bootstrapServers
@@ -104,7 +111,8 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
         componentInfo = ComponentInfo(
             containerInfoFrom(kafkaContainer),
             KafkaContainerConfig(
-                kafkaContainer.bootstrapServers
+                kafkaContainer.bootstrapServers,
+                addressToProtocol
             ),
             type = type,
             name = name,
@@ -114,6 +122,41 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
         // re-emit the running event now we're fully configured
         eventSource.running()
         return componentInfo!!
+    }
+    private val addressToProtocol = mutableMapOf<String,String>()
+
+    /**
+     * Configures listeners for the external addresses that
+     * we're known by. Otherwise consumers who are connecting from
+     * an external IP address can't connect to Kafka.
+     *
+     * Works by establishing a custom protocol mapping (test containers adds a TC-0 / TC-1 etc.. to the front)
+     */
+    private fun configureExternalListenerAddresses(
+        hostConfig: HostConfig,
+        container: KafkaContainer
+    ): KafkaContainer {
+        hostConfig.hostAddresses.forEachIndexed { index, externalAddress ->
+            // each custom address gets a port incrementally higher than 9094
+            val port = 9094 + index
+
+            container.addExposedPort(port)
+            container.withListener {
+                try {
+                    // If this doesn't throw an error, we're building the KAFKA_ADVERTISED_LISTENER part
+                    val mappedPort = container.getMappedPort(port)
+                    logger.info { "Configuring external Kafka listener for $externalAddress:$port" }
+                    // Test containers maps these as TC-0://0.0.0.0:909X
+                    val protocol = "TC-$index"
+                    addressToProtocol.put(externalAddress, "$protocol://$externalAddress:$mappedPort")
+                    "$externalAddress:$mappedPort"
+                } catch (e: IllegalStateException) {
+                    // The container isn't ready yet, so we're building the internal KAFKA_LISTENER
+                    "0.0.0.0:$port"
+                }
+            }
+        }
+        return container
     }
 
     override fun stop() {
@@ -146,7 +189,7 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
         val adminProps = Properties().apply {
             put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
         }
-        
+
         AdminClient.create(adminProps).use { adminClient ->
             // Group topics by name to handle duplicates and use max partitions
             val topicConfigs = producers.groupBy { it.topic }
@@ -154,7 +197,7 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
                 .map { (topicName, partitions) ->
                     NewTopic(topicName, partitions, 1.toShort()) // replication factor of 1 for single broker
                 }
-            
+
             if (topicConfigs.isNotEmpty()) {
                 try {
                     val result = adminClient.createTopics(topicConfigs)
@@ -170,8 +213,14 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
     }
 }
 
-data class KafkaContainerConfig(val bootstrapServers: String) : HostNameAwareContainerConfig<KafkaContainerConfig> {
+data class KafkaContainerConfig(val bootstrapServers: String, private val externalAddressToListenerProtocol:Map<String,String>) : HostNameAwareContainerConfig<KafkaContainerConfig> {
     override fun updateHostReferences(containerHost: String, publicHost: String): KafkaContainerConfig {
-        return copy(bootstrapServers = bootstrapServers.updateHostReferences(containerHost, publicHost))
+        // If we configured a dedicated bootstrap server protocol for this host, then use that
+        val dedicatedBootstrapServer = externalAddressToListenerProtocol[publicHost]
+        return if (dedicatedBootstrapServer != null) {
+            copy(bootstrapServers = dedicatedBootstrapServer)
+        } else {
+            this
+        }
     }
 }

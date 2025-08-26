@@ -1,5 +1,6 @@
 package com.orbitalhq.nebula.s3
 
+import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.StackRunner
@@ -43,7 +44,7 @@ class S3Executor(private val config: S3Config) : InfrastructureComponent<Localst
     override var componentInfo: ComponentInfo<LocalstackContainerConfig>? = null
         private set
 
-    override fun start(nebulaConfig: NebulaConfig):ComponentInfo<LocalstackContainerConfig> {
+    override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig):ComponentInfo<LocalstackContainerConfig> {
         localstack = LocalStackContainer(DockerImageName.parse(config.imageName))
             .withServices(LocalStackContainer.Service.S3)
             .withNetwork(nebulaConfig.network)

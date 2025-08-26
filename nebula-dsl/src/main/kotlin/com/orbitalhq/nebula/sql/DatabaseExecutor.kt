@@ -1,5 +1,6 @@
 package com.orbitalhq.nebula.sql
 
+import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.StackRunner
@@ -45,7 +46,7 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
     override var componentInfo: ComponentInfo<DatabaseContainerConfig>? = null
         private set
 
-    override fun start(nebulaConfig: NebulaConfig): ComponentInfo<DatabaseContainerConfig> {
+    override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig): ComponentInfo<DatabaseContainerConfig> {
         databaseContainer = config.container.withDatabaseName(config.databaseName)
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)

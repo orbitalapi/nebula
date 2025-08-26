@@ -1,6 +1,7 @@
 package com.orbitalhq.nebula.mongo
 
 import com.mongodb.client.MongoClients
+import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.StackRunner
@@ -34,7 +35,7 @@ class MongoExecutor(private val config: MongoConfig) : InfrastructureComponent<M
         private val logger = KotlinLogging.logger {}
     }
 
-    override fun start(nebulaConfig: NebulaConfig): ComponentInfo<MongoContainerConfig> {
+    override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig): ComponentInfo<MongoContainerConfig> {
         mongoContainer = MongoDBContainer(DockerImageName.parse(config.imageName))
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)

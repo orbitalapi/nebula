@@ -13,6 +13,21 @@ data class NebulaConfig(
     val networkName: String = "nebula_network",
     val network: Network = Network.newNetwork()
 )
+
+/**
+ * Captures the details of the host, as captured when a stack
+ * is submitted.
+ * We can use this to determine things like the IP address that the
+ * stack is accessible via, to configure components who are strict
+ * about which network interfaces they listen on (eg., Kafka)
+ */
+data class HostConfig(
+    val hostAddresses:List<String>
+) {
+    companion object {
+        val UNKNOWN = HostConfig(emptyList())
+    }
+}
 class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
     private val logger = KotlinLogging.logger {}
     val stacks = ConcurrentHashMap<StackName, NebulaStackWithSource>()
@@ -63,12 +78,14 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
 
 
     private fun start(name: String) {
-        val stack = this.stacks[name]?.stack ?: error("Stack $name not found")
+        val stackWithSource = this.stacks[name] ?: error("Stack $name not found")
+        val stack = stackWithSource.stack
+        val hostConfig = stackWithSource.hostConfig
         stack.lifecycleEvents.subscribe { event ->
             logger.info { event.toString() }
         }
         logger.info { "Starting ${stack.name}" }
-        val state: Map<String, ComponentInfo<out Any?>> = stack.startComponents(config)
+        val state: Map<String, ComponentInfo<out Any?>> = stack.startComponents(config, hostConfig)
 
         _stackState[name] = state
     }
@@ -114,7 +131,7 @@ fun NebulaStackWithSource.start(): StackRunner {
  */
 fun NebulaStack.start(): StackRunner {
     val executor = StackRunner()
-    val stackWithSource = NebulaStackWithSource(this, "Source not provided - Random UUID follows - ${UUID.randomUUID()}" )
+    val stackWithSource = NebulaStackWithSource(this, "Source not provided - Random UUID follows - ${UUID.randomUUID()}" , hostConfig = HostConfig.UNKNOWN)
     executor.submit(stackWithSource)
     return executor
 }

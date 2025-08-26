@@ -1,5 +1,6 @@
 package com.orbitalhq.nebula.runtime
 
+import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.NebulaScript
 import com.orbitalhq.nebula.NebulaStack
 import com.orbitalhq.nebula.NebulaStackWithSource
@@ -56,9 +57,9 @@ class NebulaScriptExecutor {
         val source = string.toScriptSource()
         return runScript(source)
     }
-    fun toStackWithSource(string: String): NebulaStackWithSource {
+    fun toStackWithSource(string: String, hostConfig: HostConfig): NebulaStackWithSource {
         val source = string.toScriptSource()
         val stack = runScript(source)
-        return NebulaStackWithSource(stack, string)
+        return NebulaStackWithSource(stack, string, hostConfig)
     }
 }

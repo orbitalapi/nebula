@@ -1,5 +1,6 @@
 package com.orbitalhq.nebula.taxi
 
+import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.core.ComponentInfo
@@ -29,7 +30,7 @@ class TaxiPublishingExecutor(private val config: TaxiPublisherConfig) : Infrastr
         private set
 
 
-    override fun start(nebulaConfig: NebulaConfig): ComponentInfo<TaxiPublisherConfig> {
+    override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig): ComponentInfo<TaxiPublisherConfig> {
         eventSource.starting()
 
         // Publish

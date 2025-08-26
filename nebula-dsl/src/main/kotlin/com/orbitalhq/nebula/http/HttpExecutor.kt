@@ -1,5 +1,6 @@
 package com.orbitalhq.nebula.http
 
+import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.StackRunner
@@ -47,7 +48,7 @@ class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent<Htt
     override var componentInfo: ComponentInfo<HttpServerConfig>? = null
         private set
 
-    override fun start(nebulaConfig: NebulaConfig):ComponentInfo<HttpServerConfig> {
+    override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig):ComponentInfo<HttpServerConfig> {
         eventSource.starting()
         server = embeddedServer(Netty, port = port) {
             routing {

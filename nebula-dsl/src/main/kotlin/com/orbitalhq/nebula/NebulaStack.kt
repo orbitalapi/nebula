@@ -18,7 +18,8 @@ typealias StackName = String
 
 data class NebulaStackWithSource(
     val stack: NebulaStack,
-    val source: String
+    val source: String,
+    val hostConfig: HostConfig
 ) {
     fun withName(id: String):NebulaStackWithSource {
         return this.copy(stack = stack.withName(id))
@@ -54,10 +55,10 @@ class NebulaStack(
         return component
     }
 
-    fun startComponents(config: NebulaConfig): Map<String, ComponentInfo<out Any?>> {
+    fun startComponents(config: NebulaConfig, hostConfig: HostConfig): Map<String, ComponentInfo<out Any?>> {
         stackStateEventSource.listenForEvents(name, components)
         return components.associate { component ->
-            component.type to component.start(config)
+            component.type to component.start(config, hostConfig)
         }
     }
 
