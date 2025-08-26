@@ -19,7 +19,7 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
     private val _stackState = ConcurrentHashMap<StackName, Map<String, ComponentInfo<*>>>()
 
     fun submit(submittedStack: NebulaStackWithSource, name: StackName = submittedStack.name, startAsync: Boolean = false): Flux<StackStateEvent> {
-        val stack = this.stacks.compute(name) { key, existingSpec ->
+        val storedStack = this.stacks.compute(name) { key, existingSpec ->
             if (existingSpec != null) {
                 if (existingSpec.source == submittedStack.source) {
                     logger.info { "Received duplicate submission for spec $key - reusing existing stack" }
@@ -31,13 +31,21 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
             }
             submittedStack
         } ?: error("After submitting stack $name, no stack was created.")
-        if (startAsync) {
-            thread {
+
+        // Only start if the stack that got stored was the one that got submitted.
+        // Otherwise it's someone elses stack, and already running
+        if (submittedStack == storedStack) {
+            if (startAsync) {
+                thread {
+                    start(name)
+                }
+            } else {
                 start(name)
             }
         } else {
-            start(name)
+            logger.info { "Not starting stack ${storedStack.name} as stack is already running" }
         }
+
 
 
         return stackEvents(name)
