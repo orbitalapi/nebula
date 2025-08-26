@@ -1,6 +1,7 @@
 package com.orbitalhq.nebula.cli
 
 import com.orbitalhq.nebula.NebulaConfig
+import com.orbitalhq.nebula.NebulaStackWithSource
 import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
 import com.orbitalhq.nebula.runtime.server.NebulaServer
@@ -86,9 +87,10 @@ class Nebula : Callable<Int> {
 
         val scriptRunner = NebulaScriptExecutor()
         val stack = scriptRunner.runScript(file)
+        val stackWithSource = NebulaStackWithSource(stack, file.readText())
 
         val stackRunner = StackRunner(nebulaConfig)
-        stackRunner.submit(stack)
+        stackRunner.submit(stackWithSource)
         Runtime.getRuntime().addShutdownHook(Thread {
             if (verbose) spec.commandLine().out.println("Shutting down services...")
             stackRunner.shutDownAll()

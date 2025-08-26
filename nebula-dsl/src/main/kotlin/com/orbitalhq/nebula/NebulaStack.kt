@@ -16,6 +16,17 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 typealias StackName = String
 
+data class NebulaStackWithSource(
+    val stack: NebulaStack,
+    val source: String
+) {
+    fun withName(id: String):NebulaStackWithSource {
+        return this.copy(stack = stack.withName(id))
+    }
+
+    val name = stack.name
+}
+
 class NebulaStack(
     val name: StackName = NameGenerator.generateName(),
     initialComponents: List<InfrastructureComponent<*>> = emptyList()

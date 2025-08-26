@@ -3,10 +3,9 @@ package com.orbitalhq.nebula
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.StackStateEvent
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.junit.runner.Description
-import org.junit.runners.model.Statement
 import org.testcontainers.containers.Network
 import reactor.core.publisher.Flux
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
@@ -16,17 +15,22 @@ data class NebulaConfig(
 )
 class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
     private val logger = KotlinLogging.logger {}
-    val stacks = ConcurrentHashMap<StackName, NebulaStack>()
+    val stacks = ConcurrentHashMap<StackName, NebulaStackWithSource>()
     private val _stackState = ConcurrentHashMap<StackName, Map<String, ComponentInfo<*>>>()
 
-    fun submit(stack: NebulaStack, name: StackName = stack.name, startAsync: Boolean = false): Flux<StackStateEvent> {
-        this.stacks.compute(name) { key, existingSpec ->
+    fun submit(submittedStack: NebulaStackWithSource, name: StackName = submittedStack.name, startAsync: Boolean = false): Flux<StackStateEvent> {
+        val stack = this.stacks.compute(name) { key, existingSpec ->
             if (existingSpec != null) {
-                logger.info { "Replacing spec $key" }
-                shutDown(name)
+                if (existingSpec.source == submittedStack.source) {
+                    logger.info { "Received duplicate submission for spec $key - reusing existing stack" }
+                    return@compute existingSpec
+                } else {
+                    logger.info { "Replacing spec $key" }
+                    shutDown(name)
+                }
             }
-            stack
-        }
+            submittedStack
+        } ?: error("After submitting stack $name, no stack was created.")
         if (startAsync) {
             thread {
                 start(name)
@@ -46,12 +50,12 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
 
     fun stackEvents(name:String):Flux<StackStateEvent> {
         val stack = this.stacks[name] ?: error("Stack $name not found")
-        return stack.lifecycleEvents
+        return stack.stack.lifecycleEvents
     }
 
 
     private fun start(name: String) {
-        val stack = this.stacks[name] ?: error("Stack $name not found")
+        val stack = this.stacks[name]?.stack ?: error("Stack $name not found")
         stack.lifecycleEvents.subscribe { event ->
             logger.info { event.toString() }
         }
@@ -63,7 +67,7 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
 
     inline fun <reified T : InfrastructureComponent<*>> component(): List<T> {
         return this.stacks.values.flatMap {
-            it.components.filterIsInstance<T>()
+            it.stack.components.filterIsInstance<T>()
         }
     }
 
@@ -74,7 +78,7 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
     fun shutDown(name: String) {
         val spec = this.stacks[name] ?: error("Spec $name not found")
         logger.info { "Shutting down ${spec.name}" }
-        spec.components.forEach {
+        spec.stack.components.forEach {
             try {
                 logger.info { "Stopping ${it.name}" }
                 it.stop()
@@ -89,8 +93,20 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
 /**
  * Convenience for testing
  */
-fun NebulaStack.start(): StackRunner {
+fun NebulaStackWithSource.start(): StackRunner {
     val executor = StackRunner()
     executor.submit(this)
+    return executor
+}
+
+/**
+ * Testing method.
+ * Uses a random UUID in the source to replicate legacy behaviour, where submission
+ * would not check for duplicates, or replace existing stacks if present
+ */
+fun NebulaStack.start(): StackRunner {
+    val executor = StackRunner()
+    val stackWithSource = NebulaStackWithSource(this, "Source not provided - Random UUID follows - ${UUID.randomUUID().toString()}" )
+    executor.submit(stackWithSource)
     return executor
 }
