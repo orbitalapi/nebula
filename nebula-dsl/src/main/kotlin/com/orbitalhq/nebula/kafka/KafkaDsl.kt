@@ -36,10 +36,11 @@ class KafkaBuilder(private val imageName: String, private val componentName: Com
     private val producers = mutableListOf<ProducerConfig>()
 
     fun producer(frequency: Duration, topic: String,
+                 partitions: Int = 1,
                  keySerializer: MessageSerializer = MessageSerializer.String,
                  valueSerializer: MessageSerializer = MessageSerializer.String,
                  init: ProducerBuilder.() -> Unit) {
-        producers.add(ProducerBuilder(frequency, topic, keySerializer.serializerClass, valueSerializer.serializerClass).apply(init).build())
+        producers.add(ProducerBuilder(frequency, topic, partitions, keySerializer.serializerClass, valueSerializer.serializerClass).apply(init).build())
     }
 
     fun build(): KafkaConfig = KafkaConfig(imageName, producers, componentName)
@@ -49,6 +50,7 @@ class KafkaBuilder(private val imageName: String, private val componentName: Com
 class ProducerBuilder(
     private val frequency: Duration,
     private val topic: String,
+    private val partitions: Int,
     private val keySerializer: Class<out Serializer<*>>,
     private val valueSerializer: Class<out Serializer<*>>
 ) {
@@ -153,7 +155,7 @@ class ProducerBuilder(
     }
 
     fun build(): ProducerConfig {
-        return ProducerConfig(frequency, topic, keySerializer, valueSerializer, messageGenerator)
+        return ProducerConfig(frequency, topic, partitions, keySerializer, valueSerializer, messageGenerator)
     }
 }
 
@@ -165,7 +167,9 @@ data class KafkaConfig(
 )
 
 data class ProducerConfig(
-    val frequency: Duration, val topic: String,
+    val frequency: Duration, 
+    val topic: String,
+    val partitions: Int,
     val keySerializer: Class<out Serializer<*>>,
     val valueSerializer: Class<out Serializer<*>>,
     val messageGenerator: () -> Any
