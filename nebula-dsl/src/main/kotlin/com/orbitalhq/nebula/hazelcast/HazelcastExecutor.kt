@@ -10,6 +10,7 @@ import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.core.ComponentName
 import com.orbitalhq.nebula.core.ComponentType
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
+import com.orbitalhq.nebula.logging.LogStream
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.Wait
@@ -33,6 +34,7 @@ class HazelcastExecutor(private val config: HazelcastConfig) : InfrastructureCom
     private lateinit var container: GenericContainer<*>
     override val name: ComponentName = config.componentName
     override val type: ComponentType = "hazelcast"
+    override val logStream: LogStream = LogStream()
     private val eventSource = ComponentLifecycleEventSource()
 
     override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig): ComponentInfo<HazelcastContainerConfig> {
@@ -53,6 +55,7 @@ class HazelcastExecutor(private val config: HazelcastConfig) : InfrastructureCom
             name = name,
             id = id
         )
+        logStream.attachContainer(container, name)
         eventSource.running()
         logger.info { "Hazelcast container started" }
         return componentInfo!!

@@ -8,6 +8,7 @@ import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.core.ComponentName
 import com.orbitalhq.nebula.core.ComponentType
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
+import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.schema.publisher.SchemaPublisherService
 import com.orbitalhq.schema.publisher.cli.SimpleHttpPublisher
 import com.orbitalhq.schema.publisher.http.HttpSchemaPublisher
@@ -25,7 +26,7 @@ class TaxiPublishingExecutor(private val config: TaxiPublisherConfig) : Infrastr
         get() {
             return eventSource.currentState
         }
-
+    override val logStream: LogStream = LogStream()
     override var componentInfo: ComponentInfo<TaxiPublisherConfig>? = null
         private set
 

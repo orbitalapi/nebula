@@ -9,6 +9,7 @@ import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
+import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.utils.updateHostReferences
 import org.testcontainers.containers.localstack.LocalStackContainer
 import org.testcontainers.utility.DockerImageName
@@ -35,23 +36,23 @@ class S3Executor(private val config: S3Config) : InfrastructureComponent<Localst
     override val name = config.componentName
 
     private val eventSource = ComponentLifecycleEventSource()
-
+    override val logStream: LogStream = LogStream()
     override val lifecycleEvents: Flux<ComponentLifecycleEvent> = eventSource.events
     override val currentState: ComponentLifecycleEvent
-    get() {
-        return eventSource.currentState
-    }
+        get() {
+            return eventSource.currentState
+        }
     override var componentInfo: ComponentInfo<LocalstackContainerConfig>? = null
         private set
 
-    override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig):ComponentInfo<LocalstackContainerConfig> {
+    override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig): ComponentInfo<LocalstackContainerConfig> {
         localstack = LocalStackContainer(DockerImageName.parse(config.imageName))
             .withServices(LocalStackContainer.Service.S3)
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
 
         eventSource.startContainerAndEmitEvents(localstack)
-
+        logStream.attachContainer(localstack, name)
         val endpointOverride = localstack.getEndpointOverride(LocalStackContainer.Service.S3)
         s3Client = S3Client.builder()
             .endpointOverride(endpointOverride)

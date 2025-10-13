@@ -7,6 +7,7 @@ import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
+import com.orbitalhq.nebula.logging.LogStream
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -31,6 +32,7 @@ class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent<Htt
     }
 
     private val eventSource = ComponentLifecycleEventSource()
+    override val logStream: LogStream = LogStream()
 
     override val lifecycleEvents: Flux<ComponentLifecycleEvent> = eventSource.events
     override val currentState: ComponentLifecycleEvent

@@ -9,6 +9,7 @@ import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
+import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.utils.updateHostReferences
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
@@ -56,6 +57,8 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
         get() {
             return eventSource.currentState
         }
+
+    override val logStream: LogStream = LogStream()
 
     override var componentInfo: ComponentInfo<KafkaContainerConfig>? = null
         private set
@@ -108,6 +111,8 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
             }
             producerJobs.add(job)
         }
+
+        logStream.attachContainer(kafkaContainer, name)
         componentInfo = ComponentInfo(
             containerInfoFrom(kafkaContainer),
             KafkaContainerConfig(

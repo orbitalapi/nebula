@@ -6,6 +6,8 @@ import com.orbitalhq.nebula.events.StackStateEventSource
 import com.orbitalhq.nebula.hazelcast.HazelcastDsl
 import com.orbitalhq.nebula.http.HttpDsl
 import com.orbitalhq.nebula.kafka.KafkaDsl
+import com.orbitalhq.nebula.logging.LogMessage
+import com.orbitalhq.nebula.logging.StackLogStream
 import com.orbitalhq.nebula.mongo.MongoDsl
 import com.orbitalhq.nebula.s3.S3Dsl
 import com.orbitalhq.nebula.sql.SqlDsl
@@ -44,8 +46,10 @@ class NebulaStack(
         return NebulaStack(name, this._components)
     }
 
+    private val logStream = StackLogStream()
     private val stackStateEventSource = StackStateEventSource()
     val lifecycleEvents:Flux<StackStateEvent> = stackStateEventSource.events
+    val logMessages:Flux<LogMessage> = logStream.logMessages
 
     override fun <T : InfrastructureComponent<*>> add(component: T): T {
         if (isStarted.get()) {
@@ -57,6 +61,7 @@ class NebulaStack(
 
     fun startComponents(config: NebulaConfig, hostConfig: HostConfig): Map<String, ComponentInfo<out Any?>> {
         stackStateEventSource.listenForEvents(name, components)
+        logStream.attachLogStreams(components)
         return components.associate { component ->
             component.type to component.start(config, hostConfig)
         }

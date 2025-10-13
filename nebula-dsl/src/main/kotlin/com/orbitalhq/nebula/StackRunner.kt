@@ -2,6 +2,7 @@ package com.orbitalhq.nebula
 
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.StackStateEvent
+import com.orbitalhq.nebula.logging.LogMessage
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.testcontainers.containers.Network
 import reactor.core.publisher.Flux
@@ -71,9 +72,18 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
             return _stackState
         }
 
+    fun getStackState(name: StackName) : Map<String, ComponentInfo<*>>? {
+        return stateState[name]
+    }
+
+
     fun stackEvents(name:String):Flux<StackStateEvent> {
         val stack = this.stacks[name] ?: error("Stack $name not found")
         return stack.stack.lifecycleEvents
+    }
+    fun logs(name: String): Flux<LogMessage> {
+        val stack = this.stacks[name] ?: error("Stack $name not found")
+        return stack.stack.logMessages
     }
 
 
@@ -113,6 +123,7 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
             }
         }
     }
+
 }
 
 /**

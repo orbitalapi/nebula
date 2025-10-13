@@ -5,6 +5,7 @@ import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.core.ComponentName
 import com.orbitalhq.nebula.core.ComponentType
 import com.orbitalhq.nebula.core.ContainerInfo
+import com.orbitalhq.nebula.logging.LogStream
 import org.testcontainers.containers.GenericContainer
 import reactor.core.publisher.Flux
 
@@ -28,6 +29,8 @@ interface InfrastructureComponent<T> {
     val componentInfo: ComponentInfo<T>?
     val lifecycleEvents: Flux<ComponentLifecycleEvent>
     val currentState: ComponentLifecycleEvent
+
+    val logStream: LogStream
 
     val id: String
         get() {

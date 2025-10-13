@@ -9,6 +9,7 @@ import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
+import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.utils.updateHostReferences
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
@@ -43,6 +44,8 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
             return eventSource.currentState
         }
 
+    override val logStream: LogStream = LogStream()
+
     override var componentInfo: ComponentInfo<DatabaseContainerConfig>? = null
         private set
 
@@ -70,6 +73,7 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
             id = id
 
         )
+        logStream.attachContainer(databaseContainer, name)
         eventSource.running()
         return componentInfo!!
     }

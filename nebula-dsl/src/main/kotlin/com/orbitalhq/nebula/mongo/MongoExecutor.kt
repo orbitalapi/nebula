@@ -12,6 +12,7 @@ import com.orbitalhq.nebula.core.ComponentName
 import com.orbitalhq.nebula.core.ComponentType
 import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
+import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.utils.updateHostReferences
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.bson.Document
@@ -30,6 +31,7 @@ class MongoExecutor(private val config: MongoConfig) : InfrastructureComponent<M
     override val type: ComponentType = "mongo"
     private val eventSource = ComponentLifecycleEventSource()
     private lateinit var mongoContainer: MongoDBContainer
+    override val logStream: LogStream = LogStream()
 
     companion object {
         private val logger = KotlinLogging.logger {}
@@ -39,6 +41,7 @@ class MongoExecutor(private val config: MongoConfig) : InfrastructureComponent<M
         mongoContainer = MongoDBContainer(DockerImageName.parse(config.imageName))
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
+        logStream.attachContainer(mongoContainer, name)
         eventSource.startContainerAndEmitEvents(mongoContainer) {
             componentInfo = ComponentInfo(
                 containerInfoFrom(mongoContainer),

@@ -86,7 +86,6 @@ class NebulaServer(
                     }
 
                     get {
-                        val j = objectMapper
                         call.respond(stackExecutor.stateState)
                     }
 
