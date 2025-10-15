@@ -1,0 +1,37 @@
+## Kafka
+
+The `kafka` block declares a Kafka broker, using the `confluentinc/cp-kafka` image by default.
+
+### Producing messages
+To declare a producer, use `producer` block, which emits messages periodically.
+
+`producer` takes the following args:
+
+| Arg         | Description                                                                                                                                                      |
+|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `frequency` | A [Kotlin Duration](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.time/-duration/) indicating how frequently the producer closure should be called. <br /> |
+| `topic`     | The topic to write to                                                                                                                                            |
+
+The body is a function which returns a message to be written to Kafka
+
+```kotlin
+stack {
+    kafka {
+        producer("100ms".duration(), "stockQuotes") {
+            jsonMessage {
+                mapOf(
+                    "symbol" to listOf("GBP/USD", "AUD/USD", "NZD/USD").random(),
+                    "price" to Random.nextDouble(0.8, 0.95).toBigDecimal()
+                )
+            }
+        }
+    }
+}
+```
+
+### Returned values
+When a `kafka` component is declared, the following data is returned:
+
+| Key                | Description                                               |
+|--------------------|-----------------------------------------------------------|
+| `bootstrapServers` | The bootstrap servers address of the started Kafka broker |
