@@ -38,15 +38,18 @@ jobs:
   determine-version:
     runs-on: ubuntu-latest
     outputs:
-      VERSION: ${{ steps.get-version.outputs.VERSION }}  # Pass the version as output
+      VERSION: ${{ steps.get-version.outputs.VERSION }}
+      DOCKER_TAGS: ${{ steps.get-version.outputs.DOCKER_TAGS }}
     steps:
       - name: Determine version
         id: get-version
         run: |
           if [ "${{ github.ref_name }}" == "main" ]; then
               echo "VERSION=next" >> $GITHUB_OUTPUT
+              echo "DOCKER_TAGS=orbitalhq/nebula:next" >> $GITHUB_OUTPUT
           elif [ "${{ github.ref_type }}" == "tag" ]; then
             echo "VERSION=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "DOCKER_TAGS=orbitalhq/nebula:${{ github.ref_name }},orbitalhq/nebula:latest" >> $GITHUB_OUTPUT
           fi
 
   build-docker:
@@ -82,5 +85,14 @@ jobs:
         run: |
           docker buildx create --use --name multiarch-builder
           docker buildx inspect multiarch-builder --bootstrap
-          docker buildx build --platform linux/amd64,linux/arm64 -t orbitalhq/nebula:${{ needs.determine-version.outputs.VERSION }} --push .
+
+          # Parse DOCKER_TAGS and build -t flags
+          TAGS="${{ needs.determine-version.outputs.DOCKER_TAGS }}"
+          TAG_FLAGS=""
+          IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+          for tag in "${TAG_ARRAY[@]}"; do
+            TAG_FLAGS="$TAG_FLAGS -t $tag"
+          done
+
+          docker buildx build --platform linux/amd64,linux/arm64 $TAG_FLAGS --push .
 
