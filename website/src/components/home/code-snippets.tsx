@@ -1,5 +1,12 @@
 import {CodeSnippetMap} from "@/components/Guides/CodeSnippet";
 
+export const getStartedSnippet:CodeSnippetMap = {
+  'get-started': {
+    name: 'Terminal',
+    lang: 'bash',
+    code: 'docker run -v /var/run/docker.sock:/var/run/docker.sock --privileged --network host orbitalhq/nebula'
+  }
+}
 export const nebulaExampleSnippets: CodeSnippetMap = {
   'kafka-and-http': {
     name: 'stack.nebula.kts',

@@ -18,30 +18,17 @@ export const ScriptExampleBlock = ({
 
 const CodeExamples = (highlightedCode) => {
 
-  let languageTabs = {
-    'Open API': OpenApiIcon,
-  };
-  const tabCodeSnippets = {
-    'Open API': {
-      code: nebulaExampleSnippets['kafka-and-http'],
-      highlightedCode: highlightedCode.highlightedSnippets['kafka-and-http']
-    }
-
-  };
-
-  const [tab, setTab] = useState('Open API');
-
   return (<div className='max-w-4xl p-4 mx-auto min-h-[590px]'>
     <div className='flex flex-col items-center'>
       <div className={'text-center text-lg'}>
-        <BigText>One script, multiple services.</BigText>
+        <BigText>One script, all your services.</BigText>
         <SectionHeadingParagraph>
           <p>Deploy scripted Kafka, databases, buckets, and APIs using Kotlin</p>
         </SectionHeadingParagraph>
       </div>
     </div>
     <div>
-      <Snippet highlightedCode={tabCodeSnippets[tab].highlightedCode} code={tabCodeSnippets[tab].code}/>
+      <Snippet highlightedCode={highlightedCode.highlightedSnippets['kafka-and-http']} code={nebulaExampleSnippets['kafka-and-http']}/>
     </div>
   </div>)
 }

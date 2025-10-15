@@ -6,34 +6,9 @@ import * as React from 'react';
 import FAQ from '@/components/Faq';
 import {OrbitalLogoMark} from "@/components/icons/orbital-logo";
 import {TaxiLogo} from "@/components/icons/taxi-icon-yellow";
-import {microservicesCodeSnippets, nebulaExampleSnippets} from "@/components/home/code-snippets";
+import {getStartedSnippet, microservicesCodeSnippets, nebulaExampleSnippets} from "@/components/home/code-snippets";
 import {ScriptExampleBlock} from "@/components/home/ScriptExampleBlock";
-
-const faqs = [
-  {
-    question: "Is Taxi open source?",
-    answer: ["Yes. Taxi, TaxiQL, and the TaxiQL execution engine are all open source under Apache 2.0"]
-  },
-  {
-    question: 'How does this compare to GraphQL?',
-    answer: [
-      "Taxi provides many of the benefits of GraphQL—data federation and custom response schemas—without requiring resolvers or a single global schema. It integrates with your existing tech stack and supports more than just HTTP. TaxiQL works across all data sources and integration patterns, including Kafka streams, S3 buckets, API orchestration and batch workloads."
-    ],
-    learnMore: '/docs#taxi-vs-graph-ql'
-  },
-  {
-    question: "How does TaxiQL adapt automatically?",
-    answer: ["TaxiQL generates integration on-the-fly, powered by semantic metadata in your APIs. So as your APIs change, the integration automatically adapts."]
-  },
-  {
-    question: "What's the relationship between Taxi and Orbital?",
-    answer: ["Orbital is a source-visible commercial platform built on top of Taxi. They're also the company that funds the development of Taxi and TaxiQL."]
-  },
-  {
-    question: 'How many FAQs are appropriate?',
-    answer: ["This feels (at least) one too many."]
-  },
-]
+import {Snippet} from "@/components/Steps";
 
 function HeroSection() {
   return (
@@ -51,7 +26,7 @@ function HeroSection() {
           </p>
           <div className='sm:mt-10 mt-8 mb-3 flex justify-center gap-6 text-base md:text-lg flex-wrap'>
             <GetStartedButton/>
-            <LinkButton styles="hidden md:flex" link='https://playground.taxilang.org/' label='Try the desktop app'/>
+            <LinkButton styles="hidden md:flex" link='/desktop' label='Try the desktop app'/>
           </div>
           <div className={'flex items-center gap-4'}>
             <div>Developed by</div>
@@ -68,6 +43,7 @@ function HeroSection() {
 
 export default function Home(
   {
+    highlightedGetStartedSnippet,
     nebulaExampleSnippets,
   }
 ) {
@@ -76,6 +52,10 @@ export default function Home(
       <HeadMetaTags title="Nebula - Scriptable test environments"/>
       <div className='overflow-hidden dark:bg-brand-background'>
         <HeroSection/>
+      </div>
+
+      <div className='mx-auto max-w-8xl flex items-center gap-8 flex-col pb-16'>
+        <Snippet highlightedCode={highlightedGetStartedSnippet['get-started']} code={getStartedSnippet['get-started']}/>
       </div>
       <div className='overflow-hidden'>
         <ScriptExampleBlock nebulaExampleSnippets={nebulaExampleSnippets} />
@@ -90,6 +70,7 @@ export function getStaticProps() {
 
   return {
     props: {
+      highlightedGetStartedSnippet: highlightCodeSnippets(getStartedSnippet),
       nebulaExampleSnippets: highlightCodeSnippets(nebulaExampleSnippets),
     }
   };
