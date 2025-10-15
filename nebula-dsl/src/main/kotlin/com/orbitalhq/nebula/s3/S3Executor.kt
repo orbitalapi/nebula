@@ -51,8 +51,7 @@ class S3Executor(private val config: S3Config) : InfrastructureComponent<Localst
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
 
-        eventSource.startContainerAndEmitEvents(localstack)
-        logStream.attachContainer(localstack, name)
+        eventSource.startContainerAndEmitEvents(localstack, logStream, name)
         val endpointOverride = localstack.getEndpointOverride(LocalStackContainer.Service.S3)
         s3Client = S3Client.builder()
             .endpointOverride(endpointOverride)

@@ -44,7 +44,7 @@ class HazelcastExecutor(private val config: HazelcastConfig) : InfrastructureCom
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
         container.waitingFor(Wait.forListeningPort())
-        eventSource.startContainerAndEmitEvents(container)
+        eventSource.startContainerAndEmitEvents(container,logStream, name)
 
         componentInfo = ComponentInfo(
             containerInfoFrom(container),
@@ -55,7 +55,6 @@ class HazelcastExecutor(private val config: HazelcastConfig) : InfrastructureCom
             name = name,
             id = id
         )
-        logStream.attachContainer(container, name)
         eventSource.running()
         logger.info { "Hazelcast container started" }
         return componentInfo!!

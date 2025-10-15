@@ -5,6 +5,7 @@ import com.orbitalhq.nebula.core.ComponentState
 import com.orbitalhq.nebula.core.LifecycleEventWithMessage
 import com.orbitalhq.nebula.core.LifecycleUpdatedEvent
 import com.orbitalhq.nebula.core.NotStartedEvent
+import com.orbitalhq.nebula.logging.LogStream
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.testcontainers.containers.GenericContainer
 import reactor.core.publisher.Sinks
@@ -57,9 +58,13 @@ class ComponentLifecycleEventSource(private val initialState: ComponentLifecycle
         emitNext(LifecycleEventWithMessage(ComponentState.Failed, message))
     }
 
-    fun startContainerAndEmitEvents(container: GenericContainer<*>, initStep:() -> Unit = {}) {
+    fun startContainerAndEmitEvents(container: GenericContainer<*>, logStream: LogStream? = null,  containerName: String? = null, initStep:() -> Unit = {}) {
         starting()
         try {
+            if (logStream != null) {
+                require(containerName != null) { "You must pass the container name when passing a logStream"}
+                logStream.attachToUnstartedContainer(container,containerName)
+            }
             container.start()
             initStep()
             running()
