@@ -38,6 +38,11 @@ class NebulaStack(
 
     private val isStarted = AtomicBoolean(false)
 
+    val started: Boolean
+        get() {
+            return isStarted.get()
+        }
+
     init {
         initialComponents.forEach { add(it) }
     }

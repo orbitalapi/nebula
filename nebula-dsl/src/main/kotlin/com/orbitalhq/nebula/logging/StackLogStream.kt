@@ -20,7 +20,7 @@ class StackLogStream(private val bufferSize: Int = 1000) {
         }
     }
 
-    private val sink = Sinks.many().multicast().onBackpressureBuffer<LogMessage>(bufferSize)
+    private val sink = Sinks.many().replay().limit<LogMessage>(bufferSize)
     val logMessages: Flux<LogMessage> = sink.asFlux()
 
 

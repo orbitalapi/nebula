@@ -50,7 +50,7 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
 
         // Only start if the stack that got stored was the one that got submitted.
         // Otherwise it's someone elses stack, and already running
-        if (submittedStack == storedStack) {
+        if (submittedStack == storedStack || !storedStack.stack.started) {
             if (startAsync) {
                 thread {
                     start(name)
@@ -72,7 +72,7 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
             return _stackState
         }
 
-    fun getStackState(name: StackName) : Map<String, ComponentInfo<*>>? {
+    fun getStackComponents(name: StackName) : Map<String, ComponentInfo<*>>? {
         return stateState[name]
     }
 
