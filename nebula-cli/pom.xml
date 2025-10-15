@@ -139,44 +139,5 @@
             </plugin>
         </plugins>
     </build>
-    <profiles>
-        <!-- Tried gettin graal image compilation working.
-        However, it's unlikely this would ever work - as we use Kotlin's scripting interface,
-        which uses reflection for setup. It looks possible to remove the reflection from this part,
-        but we're still dealing with things like defaultImports, and custom scripting - it seems like that couldn't work.
-        -->
-<!--        <profile>-->
-<!--            <id>native</id>-->
-<!--            <build>-->
-<!--                <plugins>-->
-<!--                    <plugin>-->
-<!--                        <groupId>org.graalvm.buildtools</groupId>-->
-<!--                        <artifactId>native-maven-plugin</artifactId>-->
-<!--                        <version>${native.maven.plugin.version}</version>-->
-<!--                        <extensions>true</extensions>-->
-<!--                        <executions>-->
-<!--                            <execution>-->
-<!--                                <id>build-native</id>-->
-<!--                                <goals>-->
-<!--                                    <goal>compile-no-fork</goal>-->
-<!--                                </goals>-->
-<!--                                <phase>package</phase>-->
-<!--                            </execution>-->
-<!--                            <execution>-->
-<!--                                <id>test-native</id>-->
-<!--                                <goals>-->
-<!--                                    <goal>test</goal>-->
-<!--                                </goals>-->
-<!--                                <phase>test</phase>-->
-<!--                            </execution>-->
-<!--                        </executions>-->
-<!--                        <configuration>-->
-<!--                            <mainClass>com.orbitalhq.nebula.cli.NebulaCliKt</mainClass>-->
-<!--                        </configuration>-->
-<!--                    </plugin>-->
-<!--                </plugins>-->
-<!--            </build>-->
-<!--        </profile>-->
-    </profiles>
 
 </project>
