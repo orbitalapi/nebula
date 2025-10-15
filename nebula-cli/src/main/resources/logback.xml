@@ -1,17 +1,48 @@
 <configuration>
 
-    <!-- Define the console appender -->
+    <!-- Define the console appender with concise format -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{20} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- Set the default logging level to INFO -->
-    <root level="INFO">
+    <!-- Define the rolling file appender with detailed format -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>.logs/nebula.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO2</level>
+        </filter>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- Daily rollover with size-based triggering -->
+            <fileNamePattern>.logs/nebula.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <!-- Each file should be at most 10MB -->
+            <maxFileSize>10MB</maxFileSize>
+            <!-- Keep 30 days worth of history -->
+            <maxHistory>30</maxHistory>
+            <!-- Total size of all archive files, if exceeded, oldest files are deleted -->
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Set the default logging level to DEBUG (file will capture DEBUG, console will show INFO) -->
+    <root level="DEBUG">
         <appender-ref ref="CONSOLE" />
+        <appender-ref ref="FILE" />
     </root>
 
-    <logger name="com.orbitalhq" level="INFO"/>
+    <!-- Application-specific loggers -->
+    <logger name="com.orbitalhq" level="DEBUG"/>
+
+    <!-- Reduce verbosity of third-party libraries in console -->
+    <logger name="org.testcontainers" level="INFO"/>
+    <logger name="com.github.dockerjava" level="WARN"/>
+    <logger name="io.ktor" level="INFO"/>
 
 </configuration>

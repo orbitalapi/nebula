@@ -22,7 +22,7 @@ import kotlin.script.experimental.jvm.util.isError
 import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
 import kotlin.script.experimental.jvmhost.createJvmCompilationConfigurationFromTemplate
 
-class NebulaScriptExecutor {
+class NebulaScriptExecutor(private val logCompilationErrors: Boolean = true) {
     companion object {
         private val logger = KotlinLogging.logger {}
     }
@@ -75,9 +75,13 @@ class NebulaScriptExecutor {
     }
 
     private fun logError(resultWithDiagnostics: ResultWithDiagnostics<EvaluationResult>) {
+        if (!logCompilationErrors) return;
         logger.error { "The provided script has compilation errors" }
         resultWithDiagnostics.reports.filter { it.severity == ScriptDiagnostic.Severity.ERROR }
-            .forEach { logger.error { it.toString() } }
+            .forEach {
+                logger.error { it.toString() }
+
+            }
     }
 
     @Deprecated("call toStackWithSource")
@@ -107,7 +111,10 @@ class NebulaCompilationException(val reports: List<ScriptDiagnostic>) : RuntimeE
     val errors = reports.filter { it.isError() }
 
     companion object {
-        fun forSyntheticDiagnostic(message: String, severity: ScriptDiagnostic.Severity = ScriptDiagnostic.Severity.ERROR): NebulaCompilationException {
+        fun forSyntheticDiagnostic(
+            message: String,
+            severity: ScriptDiagnostic.Severity = ScriptDiagnostic.Severity.ERROR
+        ): NebulaCompilationException {
             return NebulaCompilationException(
                 listOf(
                     ScriptDiagnostic(
