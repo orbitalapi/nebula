@@ -53,7 +53,7 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
         databaseContainer = config.container.withDatabaseName(config.databaseName)
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
-        eventSource.startContainerAndEmitEvents(databaseContainer)
+        eventSource.startContainerAndEmitEvents(databaseContainer, logStream, name)
 
         setupDataSource()
         setupJooq()
@@ -73,7 +73,6 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
             id = id
 
         )
-        logStream.attachContainer(databaseContainer, name)
         eventSource.running()
         return componentInfo!!
     }

@@ -41,8 +41,7 @@ class MongoExecutor(private val config: MongoConfig) : InfrastructureComponent<M
         mongoContainer = MongoDBContainer(DockerImageName.parse(config.imageName))
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
-        logStream.attachContainer(mongoContainer, name)
-        eventSource.startContainerAndEmitEvents(mongoContainer) {
+        eventSource.startContainerAndEmitEvents(mongoContainer, logStream, name) {
             componentInfo = ComponentInfo(
                 containerInfoFrom(mongoContainer),
                 MongoContainerConfig(

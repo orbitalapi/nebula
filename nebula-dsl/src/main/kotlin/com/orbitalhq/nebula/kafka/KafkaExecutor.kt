@@ -10,9 +10,7 @@ import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
-import com.orbitalhq.nebula.utils.updateHostReferences
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.http.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -72,7 +70,7 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
 
-        eventSource.startContainerAndEmitEvents(kafkaContainer)
+        eventSource.startContainerAndEmitEvents(kafkaContainer, logStream, name)
 
         val bootstrapServers = kafkaContainer.bootstrapServers
         logger.info { "Kafka container started - bootstrap servers: $bootstrapServers" }
@@ -112,7 +110,6 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
             producerJobs.add(job)
         }
 
-        logStream.attachContainer(kafkaContainer, name)
         componentInfo = ComponentInfo(
             containerInfoFrom(kafkaContainer),
             KafkaContainerConfig(
