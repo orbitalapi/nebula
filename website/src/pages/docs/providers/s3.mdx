@@ -1,0 +1,26 @@
+## S3
+
+The `s3` block declares an s3 bucket, using the `localstack/localstack` image.
+
+### Declaring a bucket
+
+```kotlin
+stack {
+    s3 {
+        bucket("test-bucket") {
+            // Creates a file named hello.txt with the content of Hello World
+            // in a bucket named test-bucket
+            file("hello.txt", "Hello, world")
+        }
+    }
+}
+```
+
+### Returned values
+When an `s3` component is declared, the following data is returned:
+
+| Key                | Description                                    |
+|--------------------|------------------------------------------------|
+| `accessKey`        | The access key of the running AWS stack        |
+| `secretKey`        | The secret key of the running AWS stack        |
+| `endpointOverride` | The endpoint override of the running AWS stack |

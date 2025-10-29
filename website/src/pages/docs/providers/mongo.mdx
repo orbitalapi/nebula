@@ -1,0 +1,43 @@
+## Mongo
+Nebula currently supports the NoSQL database MongoDB.
+
+ * `mongodb` : Declares an image using the `mongo:7` image by default
+
+```kotlin
+// use the default image.
+mongo {
+    // definition goes here
+}
+
+// custom image
+mongo(imageName = "mongo:6") {
+    // definition goes here
+}
+```
+
+## Defining collections
+You can run DDL to create collections, and populate them with data by calling the `collection()`
+function:
+
+```kotlin
+mongo {
+    collection(
+        "people", data = listOf(
+            mapOf(
+                "name" to "Jimmy",
+                "age" to 25
+            ),
+            mapOf(
+                "name" to "Jack",
+                "age" to 43
+            )
+        )
+    )
+}
+```
+
+### Returned values
+When a MongoDB component is declared, the following data is returned:
+
+* `connectionString`
+* `port`

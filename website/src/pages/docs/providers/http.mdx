@@ -1,0 +1,37 @@
+## HTTP
+
+The `http` block declares an HTTP server
+
+Note: Unlike most blocks in a stack, this block does not use Docker - it uses [ktor](https://ktor.io/),
+as the Nebula http engine is already running Ktor.
+
+This is a thin wrapper around [Ktor routes](https://ktor.io/docs/server-routing.html#define_route). See the Ktor docs for more information.
+
+```kotlin
+stack {
+    // port is optional, will pick a random port
+    http(port = 9000) {
+        get("/hello") { call ->
+            call.respondText("Hello, World!")
+        }
+        post("/echo") { call ->
+            val body = call.receiveText()
+            call.respondText(body)
+        }
+        get("/users/{id}") { call ->
+            val id = call.parameters["id"]
+            call.respondText("User $id")
+        }
+        put("/update/{id}") { call ->
+            val id = call.parameters["id"]
+            val body = call.receiveText()
+            call.respondText("Updated user $id with $body")
+        }
+        delete("/delete/{id}") { call ->
+            val id = call.parameters["id"]
+            call.respondText("Deleted user $id", status = HttpStatusCode.NoContent)
+        }
+    }
+}
+```
+

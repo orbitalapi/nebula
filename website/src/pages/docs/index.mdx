@@ -1,0 +1,90 @@
+---
+title: Getting Started
+---
+
+## Nebula - Test ecosystems
+Nebula is a DSL for quickly defining test ecosystems - a combination of
+docker images and associated behaviour.
+
+Use Nebula when you want to spin up some containers, and prepare them
+with state or behaviour.
+
+Nebula lets you define behaviour for your stacks using Kotlin.
+
+For example:
+
+```kotlin
+stack {
+   // Start a Kafka broker which emits a message every 100ms
+   kafka {
+      producer("100ms".duration(), "stockQuotes") {
+         jsonMessage {
+            mapOf(
+                "symbol" to listOf("GBP/USD", "AUD/USD", "NZD/USD").random(),
+                "price" to Random.nextDouble(0.8, 0.95).toBigDecimal()
+            )
+         }
+       }
+   }
+
+   // start an HTTP server which responds on /hello
+   http {
+     get("/hello") { call ->
+        call.respondText("Hello, World!")
+   }
+}
+```
+
+Under the hood, Nebular uses TestContainers to pull in and start
+the relevant containers, then scripts them.
+
+Use Nebula to:
+ * Define a Kafka broker that emits a message periodically
+ * Deploy a test S3 instance on `localstack` with preconfigured content
+ * Script the deployment of a full db, primed with data, which accepts writes
+
+Nebula is part of the test and demo infrastructure at [Orbital](https://orbitalhq.com)
+
+## Running as a docker container
+
+This starts Nebula as in http server mode, listening on port 8099
+
+```bash
+docker run -v /var/run/docker.sock:/var/run/docker.sock --privileged --network host orbitalhq/nebula
+```
+
+ * Because Nebula launches other docker images, we need `privileged` access, along with access to the docker daemon
+ * Also, for you to be able to communicate with the downloaded images, the container runs within the `host` network
+
+
+## Getting code completion
+Nebula is a Kotlin DSL wrapper, so when working in IntelliJ you can get full code completion for Nebula.
+
+First, fetch the DSL JAR from the Orbital repository:
+
+```bash
+mvn dependency:get -Dartifact=com.orbitalhq.nebula:nebula-dsl:1.0-SNAPSHOT -DremoteRepositories=https://repo.orbitalhq.com/snapshot
+```
+
+### Enabling Nebula support in IntelliJ settings
+
+ * Go to Preferences -> Build, Execution, Deployment -> Compiler -> Kotlin Compiler
+ * At the bottom you will find a section Kotlin Scripting
+ * Complete the field: `Script definition template classes to load explicitly`: `com.orbitalhq.nebula.NebulaScript`
+ * Complete the field: `Classpath required for loading script definition template classes`:  `<PATH_TO_YOUR_M2_REPO>/.m2/repository/com/orbitalhq/nebula/nebula-dsl/1.0-SNAPSHOT/nebula-dsl-1.0-SNAPSHOT.jar`
+
+Then:
+ * Go to Preferences -> Language & Frameworks -> Kotlin -> Kotlin Scripting
+ * Make sure the script template Nebula is active and above the default Kotlin Script
+ * Apply changes
+
+
+### Alternative: Enabling Nebula support via .idea files
+In your project, add or edit a file at `.idea/kotlinc.xml`:
+
+```xml
+  <component name="KotlinCompilerSettings">
+    <option name="scriptTemplates" value="com.orbitalhq.nebula.NebulaScript" />
+    <option name="scriptTemplatesClasspath" value="$MAVEN_REPOSITORY$/com/orbitalhq/nebula-dsl/1.0-SNAPSHOT/nebula-dsl-1.0-SNAPSHOT.jar" />
+  </component>
+```
