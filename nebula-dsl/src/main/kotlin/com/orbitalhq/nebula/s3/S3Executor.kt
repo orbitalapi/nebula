@@ -47,7 +47,8 @@ class S3Executor(private val config: S3Config) : InfrastructureComponent<Localst
 
     override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig): ComponentInfo<LocalstackContainerConfig> {
         localstack = LocalStackContainer(DockerImageName.parse(config.imageName))
-            .withServices(LocalStackContainer.Service.S3)
+            // Always enable STS, as Orbital uses it for healthchecks
+            .withServices(LocalStackContainer.Service.S3, LocalStackContainer.Service.STS)
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
 
