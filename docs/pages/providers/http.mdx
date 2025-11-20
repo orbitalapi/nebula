@@ -1,32 +1,130 @@
-## HTTP
+---
+title: HTTP Server
+---
 
-The `http` block declares an HTTP server
+# HTTP Server
 
-Note: Unlike most blocks in a stack, this block does not use Docker - it uses [ktor](https://ktor.io/),
-as the Nebula http engine is already running Ktor.
+The `http` provider creates an HTTP server with custom routes using [Ktor](https://ktor.io/). Unlike most Nebula providers, this doesn't spin up a Docker container—it runs directly within the Nebula runtime.
 
-This is a thin wrapper around [Ktor routes](https://ktor.io/docs/server-routing.html#define_route). See the Ktor docs for more information.
+## Quick Start
 
 ```kotlin
 stack {
-    // port is optional, will pick a random port
+    http {
+        get("/hello") { call ->
+            call.respondText("Hello, World!")
+        }
+    }
+}
+```
+
+## Configuration
+
+### Port Configuration
+
+By default, Nebula assigns a random available port. Specify a custom port if needed:
+
+```kotlin
+http(port = 9000) {
+    // routes here
+}
+```
+
+## Defining Routes
+
+The HTTP provider supports all standard HTTP methods: `GET`, `POST`, `PUT`, `DELETE`. Routes are defined using Ktor's routing DSL.
+
+### GET Requests
+
+```kotlin
+http {
+    // Simple text response
+    get("/hello") { call ->
+        call.respondText("Hello, World!")
+    }
+
+    // Path parameters
+    get("/users/{id}") { call ->
+        val id = call.parameters["id"]
+        call.respondText("User $id")
+    }
+
+    // No content response
+    get("/health") { call ->
+        call.respond(HttpStatusCode.NoContent)
+    }
+}
+```
+
+### POST Requests
+
+```kotlin
+http {
+    post("/echo") { call ->
+        val body = call.receiveText()
+        call.respondText(body)
+    }
+
+    // JSON handling
+    post("/users") { call ->
+        val body = call.receiveText()
+        call.respondText("Created user with data: $body")
+    }
+}
+```
+
+### PUT Requests
+
+```kotlin
+http {
+    put("/update/{id}") { call ->
+        val id = call.parameters["id"]
+        val body = call.receiveText()
+        call.respondText("Updated user $id with $body")
+    }
+}
+```
+
+### DELETE Requests
+
+```kotlin
+http {
+    delete("/delete/{id}") { call ->
+        val id = call.parameters["id"]
+        call.respondText("Deleted user $id", status = HttpStatusCode.NoContent)
+    }
+}
+```
+
+## Complete Example
+
+```kotlin
+stack {
     http(port = 9000) {
         get("/hello") { call ->
             call.respondText("Hello, World!")
         }
+
+        get("/") { call ->
+            call.respond(HttpStatusCode.NoContent)
+        }
+
         post("/echo") { call ->
             val body = call.receiveText()
             call.respondText(body)
         }
+
         get("/users/{id}") { call ->
             val id = call.parameters["id"]
             call.respondText("User $id")
         }
+
         put("/update/{id}") { call ->
             val id = call.parameters["id"]
             val body = call.receiveText()
             call.respondText("Updated user $id with $body")
         }
+
         delete("/delete/{id}") { call ->
             val id = call.parameters["id"]
             call.respondText("Deleted user $id", status = HttpStatusCode.NoContent)
@@ -34,4 +132,41 @@ stack {
     }
 }
 ```
+
+## Returned Configuration
+
+When an `http` component is declared, the following configuration is available:
+
+| Property | Description |
+|----------|-------------|
+| `baseUrl` | The full base URL of the HTTP server (e.g., `http://localhost:9000`) |
+| `port` | The port the server is listening on |
+
+### Accessing Configuration
+
+```kotlin
+val infra = stack {
+    http {
+        get("/hello") { call ->
+            call.respondText("Hello!")
+        }
+    }
+}.start()
+
+val baseUrl = infra.http.single().baseUrl
+// Use baseUrl to make requests: http://localhost:xxxxx
+```
+
+## Working with Ktor
+
+The HTTP provider is a thin wrapper around [Ktor routes](https://ktor.io/docs/server-routing.html). You have full access to Ktor's capabilities:
+
+- **Request handling**: `call.receiveText()`, `call.receive<T>()`
+- **Response methods**: `call.respondText()`, `call.respond()`, `call.respondJson()`
+- **Path parameters**: `call.parameters["name"]`
+- **Query parameters**: `call.request.queryParameters["name"]`
+- **Headers**: `call.request.headers["Header-Name"]`
+- **Status codes**: `HttpStatusCode.*`
+
+See the [Ktor documentation](https://ktor.io/docs/server-routing.html) for more advanced features.
 

@@ -1,0 +1,234 @@
+---
+title: Hazelcast
+---
+
+# Hazelcast
+
+The `hazelcast` provider creates an in-memory data grid using Hazelcast with the `hazelcast/hazelcast:5` image by default. This is useful for distributed caching, session management, and in-memory computing scenarios.
+
+## Quick Start
+
+```kotlin
+stack {
+    hazelcast {
+        // Basic Hazelcast instance
+    }
+}
+```
+
+## Configuration
+
+### Custom Image
+
+```kotlin
+hazelcast(imageName = "hazelcast/hazelcast:5.3") {
+    // configuration here
+}
+```
+
+### Component Name
+
+Customize the component name for multiple Hazelcast instances:
+
+```kotlin
+hazelcast(componentName = "cache-cluster") {
+    // configuration here
+}
+```
+
+## Use Cases
+
+Hazelcast is typically used for:
+
+- **Distributed caching**: Store frequently accessed data in memory
+- **Session management**: Share session data across multiple application instances
+- **Message queues**: Distribute work across multiple consumers
+- **Event streaming**: Publish and subscribe to events
+- **Distributed computing**: Run computations across a cluster
+
+## Complete Example
+
+```kotlin
+stack {
+    hazelcast {
+        // Starts a single Hazelcast node
+    }
+}
+```
+
+## Returned Configuration
+
+When a `hazelcast` component is declared, the following configuration is available:
+
+| Property | Description |
+|----------|-------------|
+| `port` | The port Hazelcast is listening on (default: 5701) |
+
+### Accessing Configuration
+
+```kotlin
+val infra = stack {
+    hazelcast {
+        // configuration
+    }
+}.start()
+
+val hazelcastInfo = infra.hazelcast.single().componentInfo!!.componentConfig
+val port = hazelcastInfo.port
+
+println("Hazelcast running on port: $port")
+```
+
+## Working with Hazelcast Client
+
+Connect to the Hazelcast instance using the Hazelcast Java Client:
+
+```kotlin
+import com.hazelcast.client.HazelcastClient
+import com.hazelcast.client.config.ClientConfig
+
+val infra = stack {
+    hazelcast {
+        // configuration
+    }
+}.start()
+
+val port = infra.hazelcast.single().componentInfo!!.componentConfig.port
+
+// Configure client
+val config = ClientConfig().apply {
+    networkConfig.apply {
+        addresses.add("localhost:$port")
+    }
+}
+
+// Create client connection
+val client = HazelcastClient.newHazelcastClient(config)
+
+// Verify connection
+println("Connected to cluster with ${client.cluster.members.size} member(s)")
+
+// Access distributed data structures
+val map = client.getMap<String, String>("my-distributed-map")
+map.put("key1", "value1")
+println("Value: ${map.get("key1")}")
+
+client.shutdown()
+```
+
+## Distributed Data Structures
+
+Hazelcast provides various distributed data structures:
+
+### Distributed Map
+
+```kotlin
+val client = HazelcastClient.newHazelcastClient(config)
+val map = client.getMap<String, Any>("users")
+
+map.put("user:1", mapOf("name" to "Alice", "age" to 30))
+map.put("user:2", mapOf("name" to "Bob", "age" to 25))
+
+val user = map.get("user:1")
+```
+
+### Distributed Queue
+
+```kotlin
+val queue = client.getQueue<String>("tasks")
+
+queue.put("task1")
+queue.put("task2")
+
+val task = queue.take() // Blocks until item available
+println("Processing: $task")
+```
+
+### Distributed Set
+
+```kotlin
+val set = client.getSet<String>("unique-values")
+
+set.add("value1")
+set.add("value2")
+set.add("value1") // Duplicate, won't be added
+
+println("Set size: ${set.size}") // 2
+```
+
+### Distributed List
+
+```kotlin
+val list = client.getList<String>("events")
+
+list.add("event1")
+list.add("event2")
+
+list.forEach { event ->
+    println("Event: $event")
+}
+```
+
+## Integration Example
+
+Combining Hazelcast with other Nebula components:
+
+```kotlin
+stack {
+    // Start Hazelcast for caching
+    hazelcast {
+        // configuration
+    }
+
+    // Start HTTP server
+    http {
+        val hazelcastPort = infra.hazelcast.single().componentInfo!!.componentConfig.port
+        val clientConfig = ClientConfig().apply {
+            networkConfig.addresses.add("localhost:$hazelcastPort")
+        }
+        val hazelcastClient = HazelcastClient.newHazelcastClient(clientConfig)
+        val cache = hazelcastClient.getMap<String, String>("api-cache")
+
+        get("/data/{key}") { call ->
+            val key = call.parameters["key"]!!
+
+            // Check cache first
+            val cachedValue = cache.get(key)
+            if (cachedValue != null) {
+                call.respondText("Cached: $cachedValue")
+            } else {
+                // Simulate data fetch
+                val value = "Data for $key"
+                cache.put(key, value)
+                call.respondText("Fresh: $value")
+            }
+        }
+    }
+}
+```
+
+## Configuration Options
+
+While the Hazelcast provider starts a basic instance, you can configure advanced settings through the Hazelcast client:
+
+```kotlin
+val config = ClientConfig().apply {
+    networkConfig.apply {
+        addresses.add("localhost:$port")
+        connectionTimeout = 5000
+        connectionAttemptLimit = 3
+    }
+
+    connectionStrategyConfig.apply {
+        connectionRetryConfig.apply {
+            clusterConnectTimeoutMillis = 10000
+        }
+    }
+}
+```
+
+## Resources
+
+- [Hazelcast Documentation](https://docs.hazelcast.com/)
+- [Hazelcast Client API](https://docs.hazelcast.com/hazelcast/latest/clients/java)
+- [Distributed Data Structures](https://docs.hazelcast.com/hazelcast/latest/data-structures/overview)

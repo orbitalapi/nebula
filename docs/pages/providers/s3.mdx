@@ -1,26 +1,265 @@
-## S3
+---
+title: S3
+---
 
-The `s3` block declares an s3 bucket, using the `localstack/localstack` image.
+# S3
 
-### Declaring a bucket
+The `s3` provider creates an S3-compatible object storage using LocalStack. It supports creating buckets and uploading files in various ways: inline content, file system paths, or streaming sequences.
+
+## Quick Start
 
 ```kotlin
 stack {
     s3 {
         bucket("test-bucket") {
-            // Creates a file named hello.txt with the content of Hello World
-            // in a bucket named test-bucket
             file("hello.txt", "Hello, world")
         }
     }
 }
 ```
 
-### Returned values
-When an `s3` component is declared, the following data is returned:
+## Configuration
 
-| Key                | Description                                    |
-|--------------------|------------------------------------------------|
-| `accessKey`        | The access key of the running AWS stack        |
-| `secretKey`        | The secret key of the running AWS stack        |
-| `endpointOverride` | The endpoint override of the running AWS stack |
+### Custom Image
+
+```kotlin
+s3(imageName = "localstack/localstack:3.0") {
+    // configuration here
+}
+```
+
+## Creating Buckets
+
+Use the `bucket` function to create an S3 bucket and optionally add files to it.
+
+### Empty Bucket
+
+```kotlin
+s3 {
+    bucket("my-bucket") {
+        // Empty bucket
+    }
+}
+```
+
+### Bucket with Files
+
+```kotlin
+s3 {
+    bucket("test-bucket") {
+        file("hello.txt", "Hello, world")
+        file("data.json", """{"key": "value"}""")
+    }
+}
+```
+
+## Adding Files
+
+Nebula provides three ways to add files to S3 buckets:
+
+### 1. Inline Content
+
+Create files with inline string content:
+
+```kotlin
+s3 {
+    bucket("test-bucket") {
+        // Simple text file
+        file("hello.txt", "Hello, world")
+
+        // JSON content
+        file("config.json", """
+            {
+                "setting1": "value1",
+                "setting2": "value2"
+            }
+        """)
+
+        // CSV content
+        file("data.csv", """
+            name,age,city
+            Alice,30,New York
+            Bob,25,San Francisco
+        """)
+    }
+}
+```
+
+### 2. File System Path
+
+Upload files from the local file system:
+
+```kotlin
+s3 {
+    bucket("test-bucket") {
+        // Upload a file from the file system
+        // The file will be stored with its original filename
+        file("/path/to/local/file.csv")
+    }
+}
+```
+
+### 3. Sequence-Based Streaming
+
+For large datasets, use a Kotlin Sequence to generate content on-the-fly. This is efficient for creating large files without loading everything into memory:
+
+```kotlin
+s3 {
+    bucket("test-bucket") {
+        // Generate a large CSV file using a sequence
+        val sequence = sequence<String> {
+            var rowCount = 0
+            val maxRows = 100_000
+
+            while (rowCount < maxRows) {
+                val row = (0..20).map {
+                    Random.nextInt(100_000, 999_999)
+                }.joinToString(",", postfix = "\n")
+
+                rowCount++
+                yield(row)
+            }
+        }
+
+        file("large-dataset.csv", sequence)
+    }
+}
+```
+
+## Complete Example
+
+```kotlin
+stack {
+    s3 {
+        bucket("test-bucket") {
+            // Inline text content
+            file("hello.txt", "Hello, world")
+
+            // JSON configuration
+            file("config.json", """
+                {
+                    "database": "postgres",
+                    "port": 5432
+                }
+            """)
+        }
+
+        bucket("data-bucket") {
+            // Large file from sequence
+            val largeDataset = sequence<String> {
+                repeat(1_000_000) {
+                    yield("row-$it,value-$it\n")
+                }
+            }
+            file("large-data.csv", largeDataset)
+        }
+    }
+}
+```
+
+## Returned Configuration
+
+When an `s3` component is declared, the following configuration is available:
+
+| Property | Description |
+|----------|-------------|
+| `accessKey` | The AWS access key for authentication |
+| `secretKey` | The AWS secret key for authentication |
+| `endpointOverride` | The LocalStack S3 endpoint URL |
+| `s3Client` | An AWS S3 SDK client configured for LocalStack |
+
+### Accessing Configuration
+
+```kotlin
+val infra = stack {
+    s3 {
+        bucket("test-bucket") {
+            file("hello.txt", "Hello, world")
+        }
+    }
+}.start()
+
+val s3Config = infra.s3.single().componentInfo!!.componentConfig
+val accessKey = s3Config.accessKey
+val secretKey = s3Config.secretKey
+val endpointOverride = s3Config.endpointOverride
+
+// Use the pre-configured S3 client
+val s3Client = infra.s3.single().s3Client
+```
+
+## Reading Files
+
+You can read files back from S3 using the configured client:
+
+```kotlin
+val infra = stack {
+    s3 {
+        bucket("test-bucket") {
+            file("hello.txt", "Hello, world")
+        }
+    }
+}.start()
+
+// Read file content
+val content = infra.s3.single().getObjectContent("test-bucket", "hello.txt")
+println(content) // Outputs: Hello, world
+```
+
+## Working with AWS SDK
+
+The S3 provider includes a pre-configured AWS S3 SDK client:
+
+```kotlin
+val infra = stack {
+    s3 {
+        bucket("test-bucket") {
+            file("data.txt", "sample data")
+        }
+    }
+}.start()
+
+val s3Client = infra.s3.single().s3Client
+
+// List objects
+val listResponse = s3Client.listObjectsV2 {
+    bucket = "test-bucket"
+}
+
+listResponse.contents?.forEach { obj ->
+    println("Object: ${obj.key}, Size: ${obj.size}")
+}
+
+// Get object metadata
+val headResponse = s3Client.headObject {
+    bucket = "test-bucket"
+    key = "data.txt"
+}
+println("Content length: ${headResponse.contentLength}")
+```
+
+## Advanced: Sequence Upload Configuration
+
+When using sequences for large files, you can configure the upload behavior:
+
+```kotlin
+// Note: Configuration is done internally via SequenceResource
+// Default buffer size is 5MB (minimum for multipart uploads)
+val sequence = sequence<String> {
+    // Generate large dataset
+    repeat(100_000) {
+        yield("data-row-$it\n")
+    }
+}
+
+s3 {
+    bucket("big-data") {
+        file("dataset.csv", sequence)
+    }
+}
+```
+
+The sequence uploader automatically handles:
+- Multipart uploads for large files
+- Memory-efficient streaming
+- Proper cleanup and error handling

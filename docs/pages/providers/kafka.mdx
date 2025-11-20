@@ -1,18 +1,12 @@
-## Kafka
+---
+title: Kafka
+---
 
-The `kafka` block declares a Kafka broker, using the `confluentinc/cp-kafka` image by default.
+# Kafka
 
-### Producing messages
-To declare a producer, use `producer` block, which emits messages periodically.
+The `kafka` provider starts a Kafka broker using TestContainers with the `confluentinc/cp-kafka:6.2.2` image by default. It supports producing messages in various formats: JSON, Avro, and Protobuf.
 
-`producer` takes the following args:
-
-| Arg         | Description                                                                                                                                                      |
-|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `frequency` | A [Kotlin Duration](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.time/-duration/) indicating how frequently the producer closure should be called. <br /> |
-| `topic`     | The topic to write to                                                                                                                                            |
-
-The body is a function which returns a message to be written to Kafka
+## Quick Start
 
 ```kotlin
 stack {
@@ -29,9 +23,223 @@ stack {
 }
 ```
 
-### Returned values
-When a `kafka` component is declared, the following data is returned:
+## Configuration
 
-| Key                | Description                                               |
-|--------------------|-----------------------------------------------------------|
-| `bootstrapServers` | The bootstrap servers address of the started Kafka broker |
+### Custom Image
+
+```kotlin
+kafka(imageName = "confluentinc/cp-kafka:7.0.0") {
+    // configuration here
+}
+```
+
+## Producing Messages
+
+Producers emit messages to Kafka topics at specified intervals. The `producer` function takes the following parameters:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `frequency` | Duration | How often to emit messages (e.g., `"100ms".duration()`) |
+| `topic` | String | The Kafka topic to write to |
+| `partitions` | Int | Number of partitions for the topic (default: 1) |
+| `keySerializer` | MessageSerializer | Serializer for message keys (default: String) |
+| `valueSerializer` | MessageSerializer | Serializer for message values (default: String) |
+
+### JSON Messages
+
+The most common format for messages. The producer function returns a Map or any object that can be serialized to JSON.
+
+```kotlin
+kafka {
+    producer("100ms".duration(), "stockQuotes") {
+        jsonMessage {
+            mapOf(
+                "symbol" to listOf("GBP/USD", "AUD/USD", "NZD/USD").random(),
+                "price" to Random.nextDouble(0.8, 0.95).toBigDecimal(),
+                "timestamp" to Instant.now().toString()
+            )
+        }
+    }
+}
+```
+
+### Producing Multiple Messages
+
+Use `jsonMessages` to emit multiple messages in a single call:
+
+```kotlin
+kafka {
+    producer("1s".duration(), "orders") {
+        jsonMessages {
+            listOf(
+                mapOf("orderId" to 1, "status" to "pending"),
+                mapOf("orderId" to 2, "status" to "shipped"),
+                mapOf("orderId" to 3, "status" to "delivered")
+            )
+        }
+    }
+}
+```
+
+### Avro Messages
+
+Nebula supports binary Avro encoding from JSON data. Define an Avro schema and produce messages from standard JSON:
+
+```kotlin
+val schema = avroSchema("""
+{
+  "type": "record",
+  "name": "StockQuote",
+  "namespace": "com.example",
+  "fields": [
+    {"name": "symbol", "type": "string"},
+    {"name": "price", "type": "double"},
+    {"name": "timestamp", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}
+""".trimIndent())
+
+kafka {
+    producer("100ms".duration(), "quotes", valueSerializer = MessageSerializer.ByteArray) {
+        avroMessage(schema) {
+            """
+            {
+              "symbol": "AAPL",
+              "price": 150.25,
+              "timestamp": 1654027200000
+            }
+            """
+        }
+    }
+}
+```
+
+#### Avro JSON Format
+
+For Avro-specific JSON (with union types), use `avroJsonMessage`:
+
+```kotlin
+kafka {
+    producer("100ms".duration(), "quotes", valueSerializer = MessageSerializer.ByteArray) {
+        avroJsonMessage(schema) {
+            """
+            {
+              "symbol": "AAPL",
+              "price": {"double": 150.25},
+              "timestamp": 1654027200000
+            }
+            """
+        }
+    }
+}
+```
+
+### Protobuf Messages
+
+Produce binary Protobuf messages from JSON data:
+
+```kotlin
+val schema = protobufSchema("""
+syntax = "proto3";
+
+message Quote {
+  string symbol = 1;
+  double price = 2;
+  int64 timestamp = 3;
+}
+""".trimIndent())
+
+kafka {
+    producer("100ms".duration(), "quotes", valueSerializer = MessageSerializer.ByteArray) {
+        protoMessage(schema, "Quote") {
+            mapOf(
+                "symbol" to "AAPL",
+                "price" to 150.25,
+                "timestamp" to System.currentTimeMillis()
+            )
+        }
+    }
+}
+```
+
+### Multiple Protobuf Messages
+
+```kotlin
+kafka {
+    producer("1s".duration(), "quotes", valueSerializer = MessageSerializer.ByteArray) {
+        protoMessages(schema, "Quote") {
+            listOf(
+                mapOf("symbol" to "AAPL", "price" to 150.25),
+                mapOf("symbol" to "GOOGL", "price" to 2800.50)
+            )
+        }
+    }
+}
+```
+
+## Complete Example
+
+```kotlin
+stack {
+    kafka {
+        // JSON producer
+        producer("500ms".duration(), "orders") {
+            jsonMessage {
+                mapOf(
+                    "orderId" to UUID.randomUUID().toString(),
+                    "amount" to Random.nextDouble(10.0, 1000.0),
+                    "status" to "pending"
+                )
+            }
+        }
+
+        // Avro producer
+        val schema = avroSchema("""...""")
+        producer("200ms".duration(), "events", valueSerializer = MessageSerializer.ByteArray) {
+            avroMessage(schema) {
+                """{"eventId": "123", "type": "click"}"""
+            }
+        }
+    }
+}
+```
+
+## Returned Configuration
+
+When a `kafka` component is declared, the following configuration is available:
+
+| Property | Description |
+|----------|-------------|
+| `bootstrapServers` | The bootstrap servers address (e.g., `PLAINTEXT://172.17.0.1:49154`) |
+
+### Accessing Configuration
+
+```kotlin
+val infra = stack {
+    kafka {
+        producer("100ms".duration(), "test") {
+            jsonMessage { mapOf("data" to "value") }
+        }
+    }
+}.start()
+
+val bootstrapServers = infra.kafka.single().bootstrapServers
+// Use with Kafka clients
+```
+
+## Message Serializers
+
+Nebula provides two built-in serializers:
+
+- `MessageSerializer.String` - For string messages (default)
+- `MessageSerializer.ByteArray` - For binary data (Avro, Protobuf)
+
+Specify the serializer in the `producer` call:
+
+```kotlin
+producer("100ms".duration(), "topic",
+         keySerializer = MessageSerializer.String,
+         valueSerializer = MessageSerializer.ByteArray) {
+    // message generation
+}
+```

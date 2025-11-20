@@ -1,0 +1,175 @@
+---
+title: Providers Overview
+---
+
+# Providers
+
+Nebula providers are components that spin up infrastructure and services for testing and development. Each provider uses TestContainers or native implementations to create isolated, disposable environments.
+
+## Available Providers
+
+### HTTP Server
+Creates an HTTP server using Ktor for defining REST APIs and web endpoints.
+- No Docker required - runs directly in Nebula
+- Full support for GET, POST, PUT, DELETE
+- Path parameters and request handling
+
+[View HTTP Documentation →](/providers/http)
+
+### Kafka
+Starts a Kafka broker with support for producing messages in multiple formats.
+- JSON, Avro, and Protobuf message support
+- Periodic message production
+- Configurable topics and partitions
+
+[View Kafka Documentation →](/providers/kafka)
+
+### SQL Databases
+PostgreSQL and MySQL database providers with schema and data seeding.
+- Create tables with DDL
+- Seed data on startup
+- jOOQ integration for queries
+
+[View SQL Documentation →](/providers/sql)
+
+### MongoDB
+NoSQL document database for flexible data models.
+- Create collections
+- Seed documents
+- Nested documents and arrays
+
+[View MongoDB Documentation →](/providers/mongo)
+
+### S3
+S3-compatible object storage using LocalStack.
+- Create buckets
+- Upload files (inline, filesystem, streaming)
+- AWS SDK integration
+
+[View S3 Documentation →](/providers/s3)
+
+### Hazelcast
+Distributed in-memory data grid for caching and distributed computing.
+- Distributed maps, queues, sets
+- Session management
+- Event streaming
+
+[View Hazelcast Documentation →](/providers/hazelcast)
+
+### Taxi Publisher
+Publishes Taxi schema packages to Orbital schema servers.
+- Define type systems
+- Share schemas
+- Configuration management
+
+[View Taxi Publisher Documentation →](/providers/taxi)
+
+## Common Patterns
+
+### Combining Providers
+
+Nebula allows you to combine multiple providers in a single stack:
+
+```kotlin
+stack {
+    // Database
+    postgres {
+        table("users", """
+            CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(100))
+        """, data = listOf(
+            mapOf("username" to "alice")
+        ))
+    }
+
+    // Message broker
+    kafka {
+        producer("1s".duration(), "events") {
+            jsonMessage {
+                mapOf("event" to "user_created", "user" to "alice")
+            }
+        }
+    }
+
+    // HTTP API
+    http(port = 8080) {
+        get("/users") { call ->
+            val dsl = infra.database.single().dsl
+            val users = dsl.selectFrom("users").fetch()
+            call.respondText(users.toString())
+        }
+    }
+}
+```
+
+### Accessing Configuration
+
+Each provider exposes configuration through the returned infrastructure:
+
+```kotlin
+val infra = stack {
+    postgres { /* ... */ }
+    kafka { /* ... */ }
+    http { /* ... */ }
+}.start()
+
+// Access database configuration
+val jdbcUrl = infra.database.single().componentInfo!!.componentConfig.jdbcUrl
+
+// Access Kafka bootstrap servers
+val bootstrapServers = infra.kafka.single().bootstrapServers
+
+// Access HTTP base URL
+val baseUrl = infra.http.single().baseUrl
+```
+
+### Custom Images
+
+Most providers support custom Docker images:
+
+```kotlin
+stack {
+    postgres(imageName = "postgres:15") { /* ... */ }
+    kafka(imageName = "confluentinc/cp-kafka:7.0.0") { /* ... */ }
+    mongo(imageName = "mongo:6.0", databaseName = "test") { /* ... */ }
+    s3(imageName = "localstack/localstack:3.0") { /* ... */ }
+}
+```
+
+### Component Naming
+
+Assign custom names to components for clarity in multi-component stacks:
+
+```kotlin
+stack {
+    postgres(componentName = "users-db") { /* ... */ }
+    postgres(componentName = "orders-db") { /* ... */ }
+
+    kafka(componentName = "events-broker") { /* ... */ }
+}
+```
+
+## Provider Lifecycle
+
+1. **Configuration**: Define providers in the `stack` block
+2. **Start**: Call `.start()` to initialize all providers
+3. **Ready**: Providers are running and accessible
+4. **Shutdown**: Call `shutDownAll()` to clean up resources
+
+```kotlin
+val infra = stack {
+    postgres { /* ... */ }
+    kafka { /* ... */ }
+}.start()
+
+// Use the infrastructure
+// ...
+
+// Clean up
+infra.shutDownAll()
+```
+
+## Next Steps
+
+- Explore individual provider documentation for detailed examples
+- Check out [example stacks](/examples) for real-world usage patterns
+- Learn about [working with stacks](/stacks) for lifecycle management

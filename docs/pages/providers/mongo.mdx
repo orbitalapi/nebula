@@ -1,43 +1,293 @@
-## Mongo
-Nebula currently supports the NoSQL database MongoDB.
+---
+title: MongoDB
+---
 
- * `mongodb` : Declares an image using the `mongo:7` image by default
+# MongoDB
+
+The `mongo` provider creates a MongoDB instance using TestContainers with the `mongo:7.0.16` image by default. It supports creating collections and seeding them with document data.
+
+## Quick Start
 
 ```kotlin
-// use the default image.
-mongo {
-    // definition goes here
-}
-
-// custom image
-mongo(imageName = "mongo:6") {
-    // definition goes here
+stack {
+    mongo(databaseName = "myapp") {
+        collection("users", data = listOf(
+            mapOf("name" to "Alice", "age" to 30),
+            mapOf("name" to "Bob", "age" to 25)
+        ))
+    }
 }
 ```
 
-## Defining collections
-You can run DDL to create collections, and populate them with data by calling the `collection()`
-function:
+## Configuration
+
+### Custom Image
 
 ```kotlin
-mongo {
-    collection(
-        "people", data = listOf(
+mongo(imageName = "mongo:6.0", databaseName = "myapp") {
+    // configuration here
+}
+```
+
+### Database Name
+
+The `databaseName` parameter is **required** and specifies which database to use:
+
+```kotlin
+mongo(databaseName = "testDb") {
+    // collections here
+}
+```
+
+## Creating Collections
+
+Use the `collection` function to create a MongoDB collection and optionally seed it with documents.
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | String | The name of the collection |
+| `data` | List<Map<String, Any>> | Optional list of documents to insert |
+
+### Empty Collection
+
+```kotlin
+mongo(databaseName = "testDb") {
+    collection("users")
+}
+```
+
+### Collection with Documents
+
+```kotlin
+mongo(databaseName = "testDb") {
+    collection("people", data = listOf(
+        mapOf(
+            "name" to "Jimmy",
+            "age" to 25,
+            "email" to "[email protected]"
+        ),
+        mapOf(
+            "name" to "Jack",
+            "age" to 43,
+            "email" to "[email protected]"
+        )
+    ))
+}
+```
+
+### Multiple Collections
+
+```kotlin
+mongo(databaseName = "testDb") {
+    collection("users", data = listOf(
+        mapOf("username" to "alice", "role" to "admin"),
+        mapOf("username" to "bob", "role" to "user")
+    ))
+
+    collection("products", data = listOf(
+        mapOf(
+            "name" to "Widget",
+            "price" to 19.99,
+            "inStock" to true
+        ),
+        mapOf(
+            "name" to "Gadget",
+            "price" to 29.99,
+            "inStock" to false
+        )
+    ))
+}
+```
+
+## Document Structure
+
+MongoDB documents are represented as `Map<String, Any>`. Nested documents and arrays are supported:
+
+### Nested Documents
+
+```kotlin
+mongo(databaseName = "testDb") {
+    collection("customers", data = listOf(
+        mapOf(
+            "name" to "Alice Smith",
+            "address" to mapOf(
+                "street" to "123 Main St",
+                "city" to "New York",
+                "zipCode" to "10001"
+            ),
+            "age" to 30
+        )
+    ))
+}
+```
+
+### Arrays
+
+```kotlin
+mongo(databaseName = "testDb") {
+    collection("orders", data = listOf(
+        mapOf(
+            "orderId" to "ORD-001",
+            "items" to listOf("item1", "item2", "item3"),
+            "tags" to listOf("priority", "express")
+        )
+    ))
+}
+```
+
+### Complex Example
+
+```kotlin
+mongo(databaseName = "testDb") {
+    collection("employees", data = listOf(
+        mapOf(
+            "name" to "John Doe",
+            "age" to 35,
+            "department" to "Engineering",
+            "skills" to listOf("Kotlin", "Java", "Python"),
+            "address" to mapOf(
+                "street" to "456 Tech Blvd",
+                "city" to "San Francisco",
+                "state" to "CA"
+            ),
+            "projects" to listOf(
+                mapOf("name" to "Project A", "status" to "active"),
+                mapOf("name" to "Project B", "status" to "completed")
+            ),
+            "salary" to 120000,
+            "isActive" to true
+        )
+    ))
+}
+```
+
+## Complete Example
+
+```kotlin
+stack {
+    mongo(imageName = "mongo:7.0", databaseName = "testDb") {
+        collection("people", data = listOf(
             mapOf(
                 "name" to "Jimmy",
-                "age" to 25
+                "age" to 25,
+                "email" to "[email protected]",
+                "interests" to listOf("coding", "gaming")
             ),
             mapOf(
                 "name" to "Jack",
-                "age" to 43
+                "age" to 43,
+                "email" to "[email protected]",
+                "interests" to listOf("reading", "hiking")
             )
-        )
-    )
+        ))
+
+        collection("products", data = listOf(
+            mapOf(
+                "name" to "Laptop",
+                "category" to "Electronics",
+                "price" to 999.99,
+                "inStock" to true,
+                "specs" to mapOf(
+                    "ram" to "16GB",
+                    "storage" to "512GB SSD"
+                )
+            )
+        ))
+    }
 }
 ```
 
-### Returned values
-When a MongoDB component is declared, the following data is returned:
+## Returned Configuration
 
-* `connectionString`
-* `port`
+When a MongoDB component is declared, the following configuration is available:
+
+| Property | Description |
+|----------|-------------|
+| `connectionString` | The MongoDB connection string (e.g., `mongodb://localhost:49153/testDb`) |
+| `port` | The port MongoDB is listening on |
+
+### Accessing Configuration
+
+```kotlin
+val infra = stack {
+    mongo(databaseName = "testDb") {
+        collection("users", data = listOf(
+            mapOf("name" to "Alice", "age" to 30)
+        ))
+    }
+}.start()
+
+val mongoConfig = infra.mongo.single().componentInfo!!.componentConfig
+val connectionString = mongoConfig.connectionString
+val port = mongoConfig.port
+
+println("MongoDB available at: $connectionString")
+```
+
+## Working with MongoDB Client
+
+You can connect to the MongoDB instance using the MongoDB Java Driver:
+
+```kotlin
+import com.mongodb.client.MongoClients
+
+val infra = stack {
+    mongo(databaseName = "testDb") {
+        collection("people", data = listOf(
+            mapOf("name" to "Jimmy", "age" to 25),
+            mapOf("name" to "Jack", "age" to 43)
+        ))
+    }
+}.start()
+
+val connectionString = infra.mongo.single().componentInfo!!.componentConfig.connectionString
+val mongoClient = MongoClients.create(connectionString)
+val database = mongoClient.getDatabase("testDb")
+val collection = database.getCollection("people")
+
+// Query all documents
+val allDocuments = collection.find().toList()
+allDocuments.forEach { doc ->
+    println("Name: ${doc.getString("name")}, Age: ${doc.getInteger("age")}")
+}
+
+// Filter documents
+val youngPeople = collection.find(
+    com.mongodb.client.model.Filters.lt("age", 30)
+).toList()
+
+mongoClient.close()
+```
+
+## Data Types
+
+MongoDB supports various data types through the Map structure:
+
+- **Strings**: `String`
+- **Numbers**: `Int`, `Long`, `Double`, `BigDecimal`
+- **Booleans**: `Boolean`
+- **Dates**: `java.util.Date`, `java.time.Instant`
+- **Arrays**: `List<Any>`
+- **Nested Documents**: `Map<String, Any>`
+- **Null values**: `null`
+
+Example with various types:
+
+```kotlin
+mongo(databaseName = "testDb") {
+    collection("records", data = listOf(
+        mapOf(
+            "stringField" to "text",
+            "intField" to 42,
+            "doubleField" to 3.14,
+            "boolField" to true,
+            "dateField" to Date(),
+            "arrayField" to listOf(1, 2, 3),
+            "objectField" to mapOf("nested" to "value"),
+            "nullField" to null
+        )
+    ))
+}
+```

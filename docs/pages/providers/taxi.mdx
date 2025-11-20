@@ -1,0 +1,344 @@
+---
+title: Taxi Publisher
+---
+
+# Taxi Publisher
+
+The `taxiPublisher` provider publishes Taxi schema packages to a remote Taxi schema server. This is useful for sharing type definitions and schemas with [Orbital](https://orbitalhq.com) or other Taxi-based systems.
+
+## Quick Start
+
+```kotlin
+stack {
+    taxiPublisher("http://localhost:9022", "com.example/myschema/1.0.0") {
+        taxi("types.taxi") {
+            """
+            type PersonName inherits String
+            type EmailAddress inherits String
+
+            model Person {
+                name: PersonName
+                email: EmailAddress
+                age: Int
+            }
+            """
+        }
+    }
+}
+```
+
+## Configuration
+
+The `taxiPublisher` function requires two parameters:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `url` | String | The base URL of the Taxi schema server (e.g., `http://localhost:9022`) |
+| `packageUri` | String | Package identifier in format `org/name/version` (e.g., `com.example/myschema/1.0.0`) |
+
+## Adding Taxi Sources
+
+Use the `taxi` function to define Taxi schema files that will be published.
+
+### Single Schema File
+
+```kotlin
+taxiPublisher("http://localhost:9022", "com.example/myschema/1.0.0") {
+    taxi("types.taxi") {
+        """
+        type UserId inherits String
+        type Username inherits String
+
+        model User {
+            id: UserId
+            username: Username
+            createdAt: Instant
+        }
+        """
+    }
+}
+```
+
+### Multiple Schema Files
+
+```kotlin
+taxiPublisher("http://localhost:9022", "com.example/myschema/1.0.0") {
+    taxi("types.taxi") {
+        """
+        type PersonName inherits String
+        type EmailAddress inherits String
+        """
+    }
+
+    taxi("models.taxi") {
+        """
+        model Person {
+            name: PersonName
+            email: EmailAddress
+            age: Int
+        }
+
+        model Company {
+            name: String
+            employees: Person[]
+        }
+        """
+    }
+
+    taxi("services.taxi") {
+        """
+        service PersonService {
+            operation findPerson(PersonName):Person
+            operation listPeople():Person[]
+        }
+        """
+    }
+}
+```
+
+## Adding Additional Sources
+
+Beyond Taxi schemas, you can include additional source files (like configuration files) using the `additionalSource` function.
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sourceKind` | String | The type of additional source (e.g., `@orbital/config`) |
+| `path` | String | The file path within the package |
+| `content` | Lambda returning String | Function that returns the file content |
+
+### Example with Additional Sources
+
+```kotlin
+taxiPublisher("http://localhost:9022", "com.example/myschema/1.0.0") {
+    // Taxi schema
+    taxi("schema.taxi") {
+        """
+        type PersonName inherits String
+        model Person {
+            name: PersonName
+        }
+        """
+    }
+
+    // Orbital configuration
+    additionalSource("@orbital/config", "connections.conf") {
+        """
+        connections {
+            myDatabase {
+                connectionString = "jdbc:postgresql://localhost:5432/mydb"
+                username = "user"
+                password = "pass"
+            }
+        }
+        """
+    }
+
+    // Additional metadata
+    additionalSource("@orbital/config", "metadata.json") {
+        """
+        {
+            "version": "1.0.0",
+            "author": "Development Team",
+            "description": "Person management schema"
+        }
+        """
+    }
+}
+```
+
+### Pair Syntax
+
+You can also use pair syntax for additional sources:
+
+```kotlin
+taxiPublisher("http://localhost:9022", "com.example/myschema/1.0.0") {
+    taxi("types.taxi") {
+        """
+        type PersonName inherits String
+        """
+    }
+
+    additionalSource("@orbital/config", "config.conf" to """
+        some.setting = "value"
+        another.setting = 42
+    """)
+}
+```
+
+## Complete Example
+
+```kotlin
+stack {
+    taxiPublisher("http://localhost:9022", "com.example/ecommerce/1.0.0") {
+        // Core types
+        taxi("types.taxi") {
+            """
+            namespace com.example.ecommerce
+
+            type ProductId inherits String
+            type ProductName inherits String
+            type Price inherits Decimal
+            type CustomerId inherits String
+            type OrderId inherits String
+            """
+        }
+
+        // Domain models
+        taxi("models.taxi") {
+            """
+            namespace com.example.ecommerce
+
+            model Product {
+                id: ProductId
+                name: ProductName
+                price: Price
+                inStock: Boolean
+            }
+
+            model Customer {
+                id: CustomerId
+                name: String
+                email: String
+            }
+
+            model Order {
+                id: OrderId
+                customerId: CustomerId
+                products: Product[]
+                total: Price
+                status: String
+            }
+            """
+        }
+
+        // Service definitions
+        taxi("services.taxi") {
+            """
+            namespace com.example.ecommerce
+
+            service ProductService {
+                operation getProduct(ProductId): Product
+                operation listProducts(): Product[]
+            }
+
+            service OrderService {
+                operation createOrder(CustomerId, Product[]): Order
+                operation getOrder(OrderId): Order
+            }
+            """
+        }
+
+        // Configuration
+        additionalSource("@orbital/config", "database.conf") {
+            """
+            database {
+                host = "localhost"
+                port = 5432
+                name = "ecommerce"
+            }
+            """
+        }
+    }
+}
+```
+
+## Publishing Behavior
+
+When the stack starts:
+
+1. The Taxi schemas and additional sources are packaged together
+2. The package is published to the specified Taxi server endpoint
+3. The server endpoint typically expects a POST to `/api/schemas/taxi`
+4. The published package includes metadata and all source files
+
+## Integration with Orbital
+
+The Taxi Publisher is designed to work with [Orbital](https://orbitalhq.com), a data integration platform. When publishing to an Orbital server:
+
+```kotlin
+stack {
+    // Start an Orbital-compatible schema server
+    http(port = 9022) {
+        post("/api/schemas/taxi") { call ->
+            val content = call.receiveText()
+            println("Received Taxi schema package: $content")
+            call.respond(HttpStatusCode.OK)
+        }
+    }
+
+    // Publish schemas to the server
+    taxiPublisher("http://localhost:9022", "com.mycompany/schemas/1.0.0") {
+        taxi("schema.taxi") {
+            """
+            type UserId inherits String
+            model User {
+                id: UserId
+                name: String
+            }
+            """
+        }
+    }
+}
+```
+
+## Returned Configuration
+
+When a `taxiPublisher` component is declared, the following configuration is available:
+
+| Property | Description |
+|----------|-------------|
+| `url` | The target schema server URL |
+
+### Accessing Configuration
+
+```kotlin
+val infra = stack {
+    taxiPublisher("http://localhost:9022", "com.example/test/1.0.0") {
+        taxi("types.taxi") {
+            "type TestType inherits String"
+        }
+    }
+}.start()
+
+val config = infra.taxiPublisher.single().componentInfo!!.componentConfig
+println("Published to: ${config.url}")
+```
+
+## Best Practices
+
+1. **Versioning**: Use semantic versioning in your package URI (e.g., `1.0.0`, `1.1.0`)
+2. **Organization**: Separate schemas into logical files (types, models, services)
+3. **Namespaces**: Use namespaces in Taxi schemas to avoid naming conflicts
+4. **Documentation**: Include comments in your Taxi schemas to document types and models
+
+```kotlin
+taxiPublisher("http://localhost:9022", "com.example/myschema/1.0.0") {
+    taxi("documented-types.taxi") {
+        """
+        namespace com.example
+
+        // Represents a unique identifier for a user
+        type UserId inherits String
+
+        // A user in the system
+        model User {
+            // The unique identifier
+            id: UserId
+
+            // The user's display name
+            name: String
+
+            // When the user account was created
+            createdAt: Instant
+        }
+        """
+    }
+}
+```
+
+## Resources
+
+- [Taxi Language Documentation](https://taxilang.org/)
+- [Orbital Documentation](https://docs.orbitalhq.com/)
