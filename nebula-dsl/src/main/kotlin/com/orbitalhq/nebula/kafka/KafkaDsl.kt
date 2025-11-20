@@ -8,6 +8,8 @@ import com.orbitalhq.nebula.core.ComponentName
 import com.orbitalhq.nebula.io.avro.convertMapToAvroGenericRecord
 import com.orbitalhq.nebula.io.avro.serializeToBinaryAvro
 import com.squareup.wire.schema.Schema
+import mu.KLogger
+import mu.KotlinLogging
 import org.apache.avro.generic.GenericData
 import org.apache.avro.generic.GenericDatumReader
 import org.apache.avro.io.DatumReader
@@ -17,12 +19,13 @@ import org.apache.kafka.common.serialization.Serializer
 import org.apache.kafka.common.serialization.StringSerializer
 import kotlin.time.Duration
 
+private val logger: KLogger = KotlinLogging.logger {}
 
 interface KafkaDsl : InfraDsl {
-    fun kafka(imageName: String = "confluentinc/cp-kafka:6.2.2", componentName:ComponentName = "kafka", dsl: KafkaBuilder.() -> Unit): KafkaExecutor {
+    fun kafka(imageName: String = "confluentinc/cp-kafka:6.2.2", componentName:ComponentName = "kafka", dsl: KafkaBuilder.(KLogger) -> Unit): KafkaExecutor {
         val builder = KafkaBuilder(imageName, componentName)
-        builder.dsl()
-        return this.add(KafkaExecutor(builder.build()))
+        builder.dsl(logger)
+        return this.add(KafkaExecutor(builder.build(), loggers = listOf(logger.name)))
     }
 }
 

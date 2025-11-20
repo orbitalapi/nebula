@@ -10,7 +10,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.testcontainers.containers.GenericContainer
 import reactor.core.publisher.Sinks
 
-class ComponentLifecycleEventSource(private val initialState: ComponentLifecycleEvent = NotStartedEvent) {
+class ComponentLifecycleEventSource(private val initialState: ComponentLifecycleEvent = NotStartedEvent, private val logStream: LogStream) {
     private val sink = Sinks.many().replay().latest<ComponentLifecycleEvent>()
 
     companion object {
@@ -51,6 +51,7 @@ class ComponentLifecycleEventSource(private val initialState: ComponentLifecycle
     }
 
     fun stopped() {
+        logStream.close()
         emitNext(LifecycleUpdatedEvent(ComponentState.Stopped))
     }
 
@@ -58,12 +59,13 @@ class ComponentLifecycleEventSource(private val initialState: ComponentLifecycle
         emitNext(LifecycleEventWithMessage(ComponentState.Failed, message))
     }
 
-    fun startContainerAndEmitEvents(container: GenericContainer<*>, logStream: LogStream? = null,  containerName: String? = null, initStep:() -> Unit = {}) {
+    fun startContainerAndEmitEvents(container: GenericContainer<*>, containerName: String? = null, initStep:() -> Unit = {}) {
         starting()
         try {
-            if (logStream != null) {
-                require(containerName != null) { "You must pass the container name when passing a logStream"}
+            if (containerName != null) {
                 logStream.attachToUnstartedContainer(container,containerName)
+            } else {
+                logger.warn { "No containerName passed for container of type ${container.containerId} so cannot attach logStream"}
             }
             container.start()
             initStep()

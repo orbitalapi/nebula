@@ -10,6 +10,7 @@ import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
+import com.orbitalhq.nebula.logging.LoggerName
 import com.orbitalhq.nebula.utils.updateHostReferences
 import org.testcontainers.containers.localstack.LocalStackContainer
 import org.testcontainers.utility.DockerImageName
@@ -27,7 +28,7 @@ val StackRunner.s3: List<S3Executor>
         return this.component<S3Executor>()
     }
 
-class S3Executor(private val config: S3Config) : InfrastructureComponent<LocalstackContainerConfig> {
+class S3Executor(private val config: S3Config, loggers: List<LoggerName>) : InfrastructureComponent<LocalstackContainerConfig> {
     private lateinit var localstack: LocalStackContainer
     lateinit var s3Client: S3Client
         private set
@@ -35,8 +36,9 @@ class S3Executor(private val config: S3Config) : InfrastructureComponent<Localst
     override val type = "s3"
     override val name = config.componentName
 
-    private val eventSource = ComponentLifecycleEventSource()
-    override val logStream: LogStream = LogStream()
+
+    override val logStream: LogStream = LogStream(name, slf4jLoggerNames = loggers + listOf(S3Executor::class))
+    private val eventSource = ComponentLifecycleEventSource(logStream = logStream)
     override val lifecycleEvents: Flux<ComponentLifecycleEvent> = eventSource.events
     override val currentState: ComponentLifecycleEvent
         get() {
@@ -52,7 +54,7 @@ class S3Executor(private val config: S3Config) : InfrastructureComponent<Localst
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
 
-        eventSource.startContainerAndEmitEvents(localstack, logStream, name)
+        eventSource.startContainerAndEmitEvents(localstack, name)
         val endpointOverride = localstack.getEndpointOverride(LocalStackContainer.Service.S3)
         s3Client = S3Client.builder()
             .endpointOverride(endpointOverride)

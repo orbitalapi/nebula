@@ -37,7 +37,7 @@ class KafkaExecutorTest : DescribeSpec({
 
         it("should build a kafka broker that emits a message every 100ms") {
             infra = stack {
-                kafka {
+                kafka { logger ->
                     producer("100ms".duration(), "stockQuotes") {
                         jsonMessage {
                             mapOf(

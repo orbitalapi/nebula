@@ -7,12 +7,16 @@ import com.orbitalhq.SourcePackage
 import com.orbitalhq.VersionedSource
 import com.orbitalhq.nebula.InfraDsl
 import lang.taxi.packages.SourcesType
+import mu.KLogger
+import mu.KotlinLogging
+
+private val logger: KLogger = KotlinLogging.logger {}
 
 interface TaxiPublisherDsl : InfraDsl {
-    fun taxiPublisher(url: String, packageUri: String, dsl: TaxiPackageBuilder.() -> Unit): TaxiPublishingExecutor {
+    fun taxiPublisher(url: String, packageUri: String, dsl: TaxiPackageBuilder.(KLogger) -> Unit): TaxiPublishingExecutor {
         val builder = TaxiPackageBuilder(url, packageUri)
-        builder.dsl()
-        return this.add(TaxiPublishingExecutor(builder.build()))
+        builder.dsl(logger)
+        return this.add(TaxiPublishingExecutor(builder.build(), listOf(logger.name)))
     }
 }
 

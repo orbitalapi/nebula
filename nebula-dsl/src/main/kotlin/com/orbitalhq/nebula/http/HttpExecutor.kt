@@ -8,6 +8,7 @@ import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
+import com.orbitalhq.nebula.logging.LoggerName
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -21,7 +22,7 @@ val StackRunner.http: List<HttpExecutor>
         return this.component<HttpExecutor>()
     }
 
-class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent<HttpServerConfig> {
+class HttpExecutor(private val config: HttpConfig, loggerNames: List<LoggerName>) : InfrastructureComponent<HttpServerConfig> {
     override val type = "http"
     override val name = config.name
 
@@ -31,8 +32,9 @@ class HttpExecutor(private val config: HttpConfig) : InfrastructureComponent<Htt
         config.port
     }
 
-    private val eventSource = ComponentLifecycleEventSource()
-    override val logStream: LogStream = LogStream()
+    override val logStream: LogStream = LogStream(name, slf4jLoggerNames = loggerNames + listOf(HttpExecutor::class))
+    private val eventSource = ComponentLifecycleEventSource(logStream = logStream)
+
 
     override val lifecycleEvents: Flux<ComponentLifecycleEvent> = eventSource.events
     override val currentState: ComponentLifecycleEvent

@@ -11,6 +11,7 @@ import com.orbitalhq.nebula.core.ComponentName
 import com.orbitalhq.nebula.core.ComponentType
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
+import com.orbitalhq.nebula.logging.LoggerName
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.Wait
@@ -26,7 +27,7 @@ val StackRunner.hazelcast: List<HazelcastExecutor>
 data class HazelcastContainerConfig(
     val port: Int
 )
-class HazelcastExecutor(private val config: HazelcastConfig) : InfrastructureComponent<HazelcastContainerConfig> {
+class HazelcastExecutor(private val config: HazelcastConfig, loggers: List<LoggerName>) : InfrastructureComponent<HazelcastContainerConfig> {
     companion object {
         private val logger = KotlinLogging.logger {}
     }
@@ -34,8 +35,8 @@ class HazelcastExecutor(private val config: HazelcastConfig) : InfrastructureCom
     private lateinit var container: GenericContainer<*>
     override val name: ComponentName = config.componentName
     override val type: ComponentType = "hazelcast"
-    override val logStream: LogStream = LogStream()
-    private val eventSource = ComponentLifecycleEventSource()
+    override val logStream: LogStream = LogStream(name, slf4jLoggerNames = loggers + listOf(HazelcastExecutor::class))
+    private val eventSource = ComponentLifecycleEventSource(logStream = logStream)
 
     override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig): ComponentInfo<HazelcastContainerConfig> {
         eventSource.starting()
@@ -44,7 +45,7 @@ class HazelcastExecutor(private val config: HazelcastConfig) : InfrastructureCom
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
         container.waitingFor(Wait.forListeningPort())
-        eventSource.startContainerAndEmitEvents(container,logStream, name)
+        eventSource.startContainerAndEmitEvents(container, name)
 
         componentInfo = ComponentInfo(
             containerInfoFrom(container),

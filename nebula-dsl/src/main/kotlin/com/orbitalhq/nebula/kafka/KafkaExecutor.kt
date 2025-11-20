@@ -10,6 +10,7 @@ import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
+import com.orbitalhq.nebula.logging.LoggerName
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,7 +39,7 @@ val StackRunner.kafka: List<KafkaExecutor>
         return this.component<KafkaExecutor>()
     }
 
-class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<KafkaContainerConfig> {
+class KafkaExecutor(private val config: KafkaConfig, loggers: List<LoggerName>) : InfrastructureComponent<KafkaContainerConfig> {
     companion object {
         private val logger = KotlinLogging.logger {}
     }
@@ -47,16 +48,18 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
     private lateinit var kafkaContainer: KafkaContainer
     private val producerJobs = mutableListOf<Job>()
     private val producers = mutableListOf<Producer<*, *>>()
-    private val eventSource = ComponentLifecycleEventSource()
-
     override val name = config.componentName
+    override val logStream: LogStream = LogStream(name, slf4jLoggerNames = loggers + listOf(KafkaExecutor::class))
+    private val eventSource = ComponentLifecycleEventSource(logStream = logStream)
+
+
     override val lifecycleEvents: Flux<ComponentLifecycleEvent> = eventSource.events
     override val currentState: ComponentLifecycleEvent
         get() {
             return eventSource.currentState
         }
 
-    override val logStream: LogStream = LogStream()
+
 
     override var componentInfo: ComponentInfo<KafkaContainerConfig>? = null
         private set
@@ -70,7 +73,7 @@ class KafkaExecutor(private val config: KafkaConfig) : InfrastructureComponent<K
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
 
-        eventSource.startContainerAndEmitEvents(kafkaContainer, logStream, name)
+        eventSource.startContainerAndEmitEvents(kafkaContainer, name)
 
         val bootstrapServers = kafkaContainer.bootstrapServers
         logger.info { "Kafka container started - bootstrap servers: $bootstrapServers" }

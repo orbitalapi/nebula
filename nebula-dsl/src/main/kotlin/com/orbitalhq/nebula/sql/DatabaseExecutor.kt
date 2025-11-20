@@ -10,6 +10,7 @@ import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
+import com.orbitalhq.nebula.logging.LoggerName
 import com.orbitalhq.nebula.utils.updateHostReferences
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
@@ -22,7 +23,7 @@ import reactor.core.publisher.Flux
 val StackRunner.database: List<DatabaseExecutor>
     get() = this.component<DatabaseExecutor>()
 
-class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureComponent<DatabaseContainerConfig> {
+class DatabaseExecutor(private val config: DatabaseConfig, loggers: List<LoggerName>) : InfrastructureComponent<DatabaseContainerConfig> {
     companion object {
         private val logger = KotlinLogging.logger {}
     }
@@ -35,16 +36,18 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
     lateinit var dsl: DSLContext
         private set
 
-    private val eventSource = ComponentLifecycleEventSource()
-
     override val name = config.componentName
+    override val logStream: LogStream = LogStream(name, slf4jLoggerNames = loggers + listOf(DatabaseExecutor::class))
+    private val eventSource = ComponentLifecycleEventSource(logStream = logStream)
+
+
     override val lifecycleEvents: Flux<ComponentLifecycleEvent> = eventSource.events
     override val currentState: ComponentLifecycleEvent
         get() {
             return eventSource.currentState
         }
 
-    override val logStream: LogStream = LogStream()
+
 
     override var componentInfo: ComponentInfo<DatabaseContainerConfig>? = null
         private set
@@ -53,7 +56,7 @@ class DatabaseExecutor(private val config: DatabaseConfig) : InfrastructureCompo
         databaseContainer = config.container.withDatabaseName(config.databaseName)
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
-        eventSource.startContainerAndEmitEvents(databaseContainer, logStream, name)
+        eventSource.startContainerAndEmitEvents(databaseContainer, name)
 
         setupDataSource()
         setupJooq()

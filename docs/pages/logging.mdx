@@ -1,0 +1,34 @@
+---
+title: Logging
+---
+
+## Logging
+
+The simplest way to log from your Nebula scripts is using plain old Kotlin:
+
+```kotlin
+println("Hello world!")
+```
+
+This will appear in the logs from your CLI or Docker container, depending on how Nebula was launched.
+
+
+### Writing structured log messages
+Each DSL has an optional `Logger`instance provided:
+
+```kotlin
+stack {
+    kafka { logger ->
+        producer("100ms".duration(), "stockQuotes") {
+            jsonMessage {
+                logger.info("This message logs whenever a jsonMessage is emitted")
+                // other stuff
+            }
+       }
+    }
+}
+```
+
+### Logs from containers (Nebula Desktop)
+The logs from containers are captured and made available in Nebula Desktop
+

@@ -9,6 +9,7 @@ import com.orbitalhq.nebula.core.ComponentName
 import com.orbitalhq.nebula.core.ComponentType
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
+import com.orbitalhq.nebula.logging.LoggerName
 import com.orbitalhq.schema.publisher.SchemaPublisherService
 import com.orbitalhq.schema.publisher.cli.SimpleHttpPublisher
 import com.orbitalhq.schema.publisher.http.HttpSchemaPublisher
@@ -17,16 +18,18 @@ import java.net.URI
 import java.time.Duration
 import kotlin.concurrent.thread
 
-class TaxiPublishingExecutor(private val config: TaxiPublisherConfig) : InfrastructureComponent<TaxiPublisherConfig> {
+class TaxiPublishingExecutor(private val config: TaxiPublisherConfig, loggers: List<LoggerName>) : InfrastructureComponent<TaxiPublisherConfig> {
     override val name: ComponentName = "Taxi publisher"
     override val type: ComponentType = "taxi-publisher"
-    private val eventSource = ComponentLifecycleEventSource()
-    override val lifecycleEvents: Flux<ComponentLifecycleEvent> = eventSource.events
+
+
     override val currentState: ComponentLifecycleEvent
         get() {
             return eventSource.currentState
         }
-    override val logStream: LogStream = LogStream()
+    override val logStream: LogStream = LogStream(name, slf4jLoggerNames = loggers + listOf(TaxiPublishingExecutor::class))
+    private val eventSource = ComponentLifecycleEventSource(logStream = logStream)
+    override val lifecycleEvents: Flux<ComponentLifecycleEvent> = eventSource.events
     override var componentInfo: ComponentInfo<TaxiPublisherConfig>? = null
         private set
 

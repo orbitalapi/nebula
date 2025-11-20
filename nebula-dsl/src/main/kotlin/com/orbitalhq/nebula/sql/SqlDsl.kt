@@ -3,23 +3,27 @@ package com.orbitalhq.nebula.sql
 import com.orbitalhq.nebula.InfraDsl
 import com.orbitalhq.nebula.core.ComponentName
 import com.orbitalhq.nebula.utils.NameGenerator
+import mu.KLogger
+import mu.KotlinLogging
 import org.jooq.SQLDialect
 import org.testcontainers.containers.JdbcDatabaseContainer
 import org.testcontainers.containers.MySQLContainer
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 
+private val logger: KLogger = KotlinLogging.logger {}
+
 interface SqlDsl : InfraDsl {
-    fun postgres(imageName: String = "postgres:13", databaseName: String = "testDb", componentName: ComponentName = "postgres", dsl: DatabaseBuilder.() -> Unit): DatabaseExecutor =
+    fun postgres(imageName: String = "postgres:13", databaseName: String = "testDb", componentName: ComponentName = "postgres", dsl: DatabaseBuilder.(KLogger) -> Unit): DatabaseExecutor =
         database(PostgreSQLContainer(DockerImageName.parse(imageName)), SQLDialect.POSTGRES, "postgres", databaseName, componentName, dsl)
 
-    fun mysql(imageName: String = "mysql:9", databaseName: String = "testDb", componentName: ComponentName = "mysql", dsl: DatabaseBuilder.() -> Unit): DatabaseExecutor =
+    fun mysql(imageName: String = "mysql:9", databaseName: String = "testDb", componentName: ComponentName = "mysql", dsl: DatabaseBuilder.(KLogger) -> Unit): DatabaseExecutor =
         database(MySQLContainer(DockerImageName.parse(imageName)), SQLDialect.MYSQL, "mysql", databaseName, componentName, dsl)
 
-    fun database(container: JdbcDatabaseContainer<*>, dialect: SQLDialect, type: String, databaseName: String, componentName: ComponentName, dsl: DatabaseBuilder.() -> Unit): DatabaseExecutor {
+    fun database(container: JdbcDatabaseContainer<*>, dialect: SQLDialect, type: String, databaseName: String, componentName: ComponentName, dsl: DatabaseBuilder.(KLogger) -> Unit): DatabaseExecutor {
         val builder = DatabaseBuilder(container, dialect, type, databaseName, componentName)
-        builder.dsl()
-        return this.add(DatabaseExecutor(builder.build()))
+        builder.dsl(logger)
+        return this.add(DatabaseExecutor(builder.build(), listOf(logger.name)))
     }
 }
 

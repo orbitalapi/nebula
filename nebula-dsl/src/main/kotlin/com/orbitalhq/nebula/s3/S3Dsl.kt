@@ -2,12 +2,17 @@ package com.orbitalhq.nebula.s3
 
 import com.orbitalhq.nebula.InfraDsl
 import com.orbitalhq.nebula.utils.NameGenerator
+import lang.taxi.utils.log
+import mu.KLogger
+import mu.KotlinLogging
+
+private val logger: KLogger = KotlinLogging.logger {}
 
 interface S3Dsl : InfraDsl {
-    fun s3(imageName: String = "localstack/localstack:latest", componentName: String = "s3", dsl: S3Builder.() -> Unit): S3Executor {
+    fun s3(imageName: String = "localstack/localstack:latest", componentName: String = "s3", dsl: S3Builder.(KLogger) -> Unit): S3Executor {
         val builder = S3Builder(imageName, componentName)
-        builder.dsl()
-        return this.add(S3Executor(builder.build()))
+        builder.dsl(logger)
+        return this.add(S3Executor(builder.build(), loggers = listOf(logger.name)))
     }
 }
 

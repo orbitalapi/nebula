@@ -2,12 +2,16 @@ package com.orbitalhq.nebula.mongo
 
 import com.orbitalhq.nebula.InfraDsl
 import com.orbitalhq.nebula.core.ComponentName
+import mu.KLogger
+import mu.KotlinLogging
+
+private val logger: KLogger = KotlinLogging.logger {}
 
 interface MongoDsl : InfraDsl {
-    fun mongo(imageName: String = "mongo:7.0.16", databaseName: String, componentName: ComponentName = "mongo", dsl: MongoBuilder.() -> Unit): MongoExecutor {
+    fun mongo(imageName: String = "mongo:7.0.16", databaseName: String, componentName: ComponentName = "mongo", dsl: MongoBuilder.(KLogger) -> Unit): MongoExecutor {
         val builder = MongoBuilder(imageName, componentName, databaseName)
-        builder.dsl()
-        return this.add(MongoExecutor(builder.build()))
+        builder.dsl(logger)
+        return this.add(MongoExecutor(builder.build(), listOf(logger.name)))
     }
 }
 

@@ -6,12 +6,16 @@ import com.orbitalhq.nebula.utils.NameGenerator
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.util.pipeline.*
+import mu.KLogger
+import mu.KotlinLogging
+
+private val logger = KotlinLogging.logger {}
 
 interface HttpDsl : InfraDsl {
-    fun http(port: Int = 0, componentName: String = "http", dsl: HttpApiBuilder.() -> Unit): HttpExecutor {
+    fun http(port: Int = 0, componentName: String = "http", dsl: HttpApiBuilder.(KLogger) -> Unit): HttpExecutor {
         val builder = HttpApiBuilder(port, componentName)
-        builder.dsl()
-        return this.add(HttpExecutor(builder.build()))
+        builder.dsl(logger)
+        return this.add(HttpExecutor(builder.build(), listOf(logger.name)))
     }
 
     companion object {
