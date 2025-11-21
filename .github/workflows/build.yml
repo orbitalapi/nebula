@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# Prevent duplicate builds on PR branches
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-jvm:
     runs-on: ubuntu-latest
