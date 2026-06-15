@@ -22,6 +22,7 @@ import java.io.File
 import java.lang.Thread.sleep
 import java.util.concurrent.Callable
 import kotlin.script.experimental.api.isError
+import kotlin.system.exitProcess
 
 @Command(
     name = "nebula",
@@ -203,7 +204,7 @@ class Nebula : Callable<Int> {
     }
 }
 
-fun main(args: Array<String>): Unit = System.exit(CommandLine(Nebula()).execute(*args))
+fun main(args: Array<String>): Unit = exitProcess(CommandLine(Nebula()).execute(*args))
 
 class ExistingDockerNetwork(private val id: String) : Network {
     override fun close() {
