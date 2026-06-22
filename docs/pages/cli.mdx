@@ -1,0 +1,45 @@
+---
+title: CLI & networking
+---
+
+## CLI options
+
+Nebula either runs a script directly, or starts an HTTP server that accepts stacks over HTTP.
+
+```bash
+# Run a script
+nebula my-stack.nebula.kts
+
+# Start the HTTP server on port 8099
+nebula --http=8099
+```
+
+| Option           | Env var              | Default          | Description                                                                 |
+|------------------|----------------------|------------------|-----------------------------------------------------------------------------|
+| `--http`         |                      |                  | Start the HTTP server on the given port instead of running a script         |
+| `--network`      | `NEBULA_NETWORK`     | `nebula_network` | The name of the docker network containers are attached to (created if absent) |
+| `--connectivity` | `NEBULA_CONNECTIVITY`| `host`           | How the host + port of each container is reported to consumers (see below)  |
+| `-v`, `--verbose`|                      | `false`          | Enable verbose output                                                       |
+
+## Connectivity modes
+
+For every container it starts, Nebula reports a `host` and `port` (and connection strings
+such as `jdbcUrl` or `bootstrapServers`). `--connectivity` controls which coordinates are
+reported, depending on where the *consumer* sits relative to the containers:
+
+| Mode      | Host reported      | Port reported           | Use when                                                                 |
+|-----------|--------------------|-------------------------|--------------------------------------------------------------------------|
+| `host`    | `localhost`        | host-mapped (external)  | The consumer reaches containers from the host machine — a developer running the CLI, or a Linux host-networking deployment. **(default)** |
+| `network` | container's alias  | internal container port | The consumer is another container on the same docker network — e.g. Orbital in a docker-compose deployment. |
+
+In `network` mode consumers talk to the containers directly over `nebula_network`, so no
+host port-mapping is involved.
+
+```bash
+# Reporting in-network coordinates (e.g. running alongside Orbital in docker-compose)
+nebula --http=8099 --connectivity=network
+```
+
+This only affects what Nebula *reports*. Nebula's own internal clients (used to create
+tables, topics, buckets, etc.) always reach the containers via the host-mapped route,
+regardless of this setting.
