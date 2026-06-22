@@ -47,3 +47,34 @@ nebula --http=8099 --connectivity=network
 This only affects what Nebula *reports*. Nebula's own internal clients (used to create
 tables, topics, buckets, etc.) always reach the containers via the host-mapped route,
 regardless of this setting.
+
+### Enabling network mode in docker-compose
+
+When Nebula runs alongside Orbital in docker-compose, set `network` mode via the
+`NEBULA_CONNECTIVITY` environment variable:
+
+```yaml
+  nebula:
+    image: orbitalhq/nebula:latest
+    networks:
+      - nebula_network
+    ports:
+      - "8099:8099"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # let Nebula control Docker
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - NEBULA_CONNECTIVITY=network
+```
+
+Nebula attaches the containers it starts to the same network it is on (here
+`nebula_network`, which compose names `<project>_nebula_network`), so Orbital and the
+started containers can talk to each other directly — no `host.docker.internal` or
+host-networking workarounds required.
+
+Alternatively, pass the flag as a `command:` (appended to the image's entrypoint, which
+already includes `--http=8099`):
+
+```yaml
+    command: ["--connectivity=network"]
+```
