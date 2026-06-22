@@ -32,8 +32,12 @@ reported, depending on where the *consumer* sits relative to the containers:
 | `host`    | `localhost`        | host-mapped (external)  | The consumer reaches containers from the host machine — a developer running the CLI, or a Linux host-networking deployment. **(default)** |
 | `network` | container's alias  | internal container port | The consumer is another container on the same docker network — e.g. Orbital in a docker-compose deployment. |
 
-In `network` mode consumers talk to the containers directly over `nebula_network`, so no
-host port-mapping is involved.
+In `network` mode consumers talk to the containers directly over the shared docker network,
+so no host port-mapping is involved. Nebula attaches the containers it starts to its **own**
+network — it inspects the container it is running in and picks the attached network whose name
+contains `--network` (default `nebula_network`). This works even when several compose projects
+(`project-a_nebula_network`, `project-b_nebula_network`, …) run on the same host. If Nebula is
+attached to more than one matching network, set `--network` to a more specific name.
 
 ```bash
 # Reporting in-network coordinates (e.g. running alongside Orbital in docker-compose)
