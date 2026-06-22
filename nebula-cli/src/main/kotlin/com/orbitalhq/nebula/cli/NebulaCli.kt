@@ -1,6 +1,7 @@
 package com.orbitalhq.nebula.cli
 
 import arrow.core.getOrElse
+import com.orbitalhq.nebula.ConsumerConnectivity
 import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.NebulaStackWithSource
@@ -51,6 +52,17 @@ class Nebula : Callable<Int> {
     @Option(names = ["--network"], description = ["The name of the docker network created"], defaultValue = "\${NEBULA_NETWORK:-nebula_network}")
     lateinit var networkName: String
 
+    @Option(
+        names = ["--connectivity"],
+        description = [
+            "How consumers reach the started containers. ",
+            "host (default): emit localhost + host-mapped ports (developer CLI / Linux host-networking). ",
+            "network: emit the container's network alias + internal port, for consumers on the same docker network (eg. Orbital in docker-compose)."
+        ],
+        defaultValue = "\${NEBULA_CONNECTIVITY:-host}"
+    )
+    lateinit var connectivity: ConsumerConnectivity
+
     private var fileWatcher: FileWatcher? = null
     private var currentStackRunner: StackRunner? = null
 
@@ -61,7 +73,8 @@ class Nebula : Callable<Int> {
         }
         val network = networkOrError.getOrThrow()
         spec.commandLine().out.println("Nebula using network name $networkName maps to ${network.id}")
-        val nebulaConfig = NebulaConfig(networkName, network)
+        spec.commandLine().out.println("Nebula emitting container coordinates for $connectivity connectivity")
+        val nebulaConfig = NebulaConfig(networkName, network, connectivity)
         when {
             scriptFile != null -> return executeScript(nebulaConfig)
             httpPort != null -> return startHttpServer(nebulaConfig)
@@ -204,7 +217,8 @@ class Nebula : Callable<Int> {
     }
 }
 
-fun main(args: Array<String>): Unit = exitProcess(CommandLine(Nebula()).execute(*args))
+fun main(args: Array<String>): Unit =
+    exitProcess(CommandLine(Nebula()).setCaseInsensitiveEnumValuesAllowed(true).execute(*args))
 
 class ExistingDockerNetwork(private val id: String) : Network {
     override fun close() {

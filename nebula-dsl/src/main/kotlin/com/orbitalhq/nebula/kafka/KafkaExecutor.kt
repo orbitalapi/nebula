@@ -1,5 +1,6 @@
 package com.orbitalhq.nebula.kafka
 
+import com.orbitalhq.nebula.ConsumerConnectivity
 import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.InfrastructureComponent
 import com.orbitalhq.nebula.NebulaConfig
@@ -7,7 +8,6 @@ import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.containerInfoFrom
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
-import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.logging.LoggerName
@@ -67,14 +67,12 @@ class KafkaExecutor(private val config: KafkaConfig, loggers: List<LoggerName>) 
     override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig): ComponentInfo<KafkaContainerConfig> {
 
         kafkaContainer = KafkaContainer(DockerImageName.parse(config.imageName))
-            .let { container ->
-                configureExternalListenerAddresses(hostConfig, container)
-            }
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
 
         eventSource.startContainerAndEmitEvents(kafkaContainer, name)
 
+        // Nebula's own admin client + producers connect via the host-mapped listener.
         val bootstrapServers = kafkaContainer.bootstrapServers
         logger.info { "Kafka container started - bootstrap servers: $bootstrapServers" }
 
@@ -113,11 +111,29 @@ class KafkaExecutor(private val config: KafkaConfig, loggers: List<LoggerName>) 
             producerJobs.add(job)
         }
 
+        // The coordinates consumers should use, resolved by connectivity mode:
+        //  - HOST: the PLAINTEXT listener mapped onto the host (localhost:<mappedPort>)
+        //  - NETWORK: the in-network BROKER listener, reachable via the container's
+        //    network alias on nebula_network (alias:9092)
+        val (emittedHost, emittedPort, emittedBootstrapServers) = when (nebulaConfig.connectivity) {
+            ConsumerConnectivity.HOST -> Triple(
+                kafkaContainer.host,
+                kafkaContainer.getMappedPort(KafkaContainer.KAFKA_PORT),
+                kafkaContainer.bootstrapServers
+            )
+            ConsumerConnectivity.NETWORK -> Triple(
+                config.componentName,
+                KAFKA_INTERNAL_BROKER_PORT,
+                "PLAINTEXT://${config.componentName}:$KAFKA_INTERNAL_BROKER_PORT"
+            )
+        }
+
         componentInfo = ComponentInfo(
-            containerInfoFrom(kafkaContainer),
+            containerInfoFrom(kafkaContainer, emittedHost),
             KafkaContainerConfig(
-                kafkaContainer.bootstrapServers,
-                addressToProtocol
+                bootstrapServers = emittedBootstrapServers,
+                host = emittedHost,
+                port = emittedPort
             ),
             type = type,
             name = name,
@@ -127,41 +143,6 @@ class KafkaExecutor(private val config: KafkaConfig, loggers: List<LoggerName>) 
         // re-emit the running event now we're fully configured
         eventSource.running()
         return componentInfo!!
-    }
-    private val addressToProtocol = mutableMapOf<String,String>()
-
-    /**
-     * Configures listeners for the external addresses that
-     * we're known by. Otherwise consumers who are connecting from
-     * an external IP address can't connect to Kafka.
-     *
-     * Works by establishing a custom protocol mapping (test containers adds a TC-0 / TC-1 etc.. to the front)
-     */
-    private fun configureExternalListenerAddresses(
-        hostConfig: HostConfig,
-        container: KafkaContainer
-    ): KafkaContainer {
-        hostConfig.hostAddresses.forEachIndexed { index, externalAddress ->
-            // each custom address gets a port incrementally higher than 9094
-            val port = 9094 + index
-
-            container.addExposedPort(port)
-            container.withListener {
-                try {
-                    // If this doesn't throw an error, we're building the KAFKA_ADVERTISED_LISTENER part
-                    val mappedPort = container.getMappedPort(port)
-                    logger.info { "Configuring external Kafka listener for $externalAddress:$port" }
-                    // Test containers maps these as TC-0://0.0.0.0:909X
-                    val protocol = "TC-$index"
-                    addressToProtocol.put(externalAddress, "$protocol://$externalAddress:$mappedPort")
-                    "$externalAddress:$mappedPort"
-                } catch (e: IllegalStateException) {
-                    // The container isn't ready yet, so we're building the internal KAFKA_LISTENER
-                    "0.0.0.0:$port"
-                }
-            }
-        }
-        return container
     }
 
     override fun stop() {
@@ -218,14 +199,11 @@ class KafkaExecutor(private val config: KafkaConfig, loggers: List<LoggerName>) 
     }
 }
 
-data class KafkaContainerConfig(val bootstrapServers: String, private val externalAddressToListenerProtocol:Map<String,String>) : HostNameAwareContainerConfig<KafkaContainerConfig> {
-    override fun updateHostReferences(containerHost: String, publicHost: String): KafkaContainerConfig {
-        // If we configured a dedicated bootstrap server protocol for this host, then use that
-        val dedicatedBootstrapServer = externalAddressToListenerProtocol[publicHost]
-        return if (dedicatedBootstrapServer != null) {
-            copy(bootstrapServers = dedicatedBootstrapServer)
-        } else {
-            this
-        }
-    }
-}
+data class KafkaContainerConfig(
+    val bootstrapServers: String,
+    val host: String,
+    val port: Int
+)
+
+// The port the in-network (BROKER) Kafka listener advertises on nebula_network.
+private const val KAFKA_INTERNAL_BROKER_PORT = 9092

@@ -7,11 +7,10 @@ import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.containerInfoFrom
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
-import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
+import com.orbitalhq.nebula.endpointFor
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.logging.LoggerName
-import com.orbitalhq.nebula.utils.updateHostReferences
 import org.testcontainers.containers.localstack.LocalStackContainer
 import org.testcontainers.utility.DockerImageName
 import reactor.core.publisher.Flux
@@ -55,6 +54,7 @@ class S3Executor(private val config: S3Config, loggers: List<LoggerName>) : Infr
             .withNetworkAliases(config.componentName)
 
         eventSource.startContainerAndEmitEvents(localstack, name)
+        // Nebula's own client connects via the host-mapped endpoint.
         val endpointOverride = localstack.getEndpointOverride(LocalStackContainer.Service.S3)
         s3Client = S3Client.builder()
             .endpointOverride(endpointOverride)
@@ -67,12 +67,21 @@ class S3Executor(private val config: S3Config, loggers: List<LoggerName>) : Infr
             uploadResources(bucketConfig)
         }
 
+        // The emitted endpoint swaps the host-mapped coordinates for the resolved ones.
+        val endpoint = nebulaConfig.endpointFor(localstack, config.componentName, LOCALSTACK_INTERNAL_PORT)
+        val emittedEndpointOverride = endpointOverride.toASCIIString().replace(
+            "${localstack.host}:${localstack.getMappedPort(LOCALSTACK_INTERNAL_PORT)}",
+            endpoint.hostAndPort
+        )
+
         componentInfo = ComponentInfo(
-            containerInfoFrom(localstack),
+            containerInfoFrom(localstack, endpoint.host),
             LocalstackContainerConfig(
                 accessKey = localstack.accessKey,
                 secretKey = localstack.secretKey,
-                endpointOverride = endpointOverride.toASCIIString()
+                host = endpoint.host,
+                port = endpoint.port,
+                endpointOverride = emittedEndpointOverride
             ),
             type = type,
             name = name,
@@ -145,10 +154,10 @@ class S3Executor(private val config: S3Config, loggers: List<LoggerName>) : Infr
 data class LocalstackContainerConfig(
     val accessKey: String,
     val secretKey: String,
+    val host: String,
+    val port: Int,
     val endpointOverride: String
-) : HostNameAwareContainerConfig<LocalstackContainerConfig> {
-    override fun updateHostReferences(containerHost: String, publicHost: String): LocalstackContainerConfig {
-        return copy(endpointOverride = endpointOverride.updateHostReferences(containerHost, publicHost))
-    }
+)
 
-}
+// The (edge) port LocalStack listens on inside the container.
+private const val LOCALSTACK_INTERNAL_PORT = 4566

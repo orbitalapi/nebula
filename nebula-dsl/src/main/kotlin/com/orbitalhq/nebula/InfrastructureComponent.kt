@@ -39,11 +39,35 @@ interface InfrastructureComponent<T> {
 }
 
 
-fun containerInfoFrom(container: GenericContainer<*>):ContainerInfo {
+fun containerInfoFrom(container: GenericContainer<*>, host: String = container.host):ContainerInfo {
     return ContainerInfo(
         containerId = container.containerId,
         imageName = container.dockerImageName,
         containerName = container.containerName,
-        host = container.host
+        host = host
     )
+}
+
+/**
+ * The host + port a consumer should use to reach a container, resolved
+ * according to the configured [ConsumerConnectivity] mode.
+ */
+data class Endpoint(val host: String, val port: Int) {
+    val hostAndPort: String get() = "$host:$port"
+}
+
+/**
+ * Resolves the [Endpoint] a consumer should use for [container], given the
+ * connectivity mode on this config.
+ *
+ * @param alias the container's network alias (conventionally its componentName)
+ * @param internalPort the port the service listens on inside the container
+ */
+fun NebulaConfig.endpointFor(
+    container: GenericContainer<*>,
+    alias: String,
+    internalPort: Int
+): Endpoint = when (connectivity) {
+    ConsumerConnectivity.HOST -> Endpoint(container.host, container.getMappedPort(internalPort))
+    ConsumerConnectivity.NETWORK -> Endpoint(alias, internalPort)
 }

@@ -12,9 +12,31 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
+/**
+ * Determines the coordinates (host + port) that Nebula emits to consumers
+ * for the containers it starts.
+ *
+ * This is about where the *consumer* sits relative to the containers, not
+ * where Nebula itself runs:
+ *
+ *  - [HOST]: the consumer reaches containers from the host machine (e.g. a
+ *    developer running the CLI, or a Linux host-networking compose). Emit
+ *    `localhost` + the host-mapped (external) port.
+ *  - [NETWORK]: the consumer is another container on the shared `nebula_network`
+ *    (e.g. Orbital in a docker-compose deployment). Emit the container's
+ *    network alias + its internal port, so consumers talk to it directly over
+ *    the docker network.
+ *
+ * Note this is distinct from how Nebula's *own* internal clients (Hikari, the
+ * Kafka admin client, etc.) reach the containers - those always use the
+ * TestContainers host-mapped route regardless of this setting.
+ */
+enum class ConsumerConnectivity { HOST, NETWORK }
+
 data class NebulaConfig(
     val networkName: String = "nebula_network",
-    val network: Network = Network.newNetwork()
+    val network: Network = Network.newNetwork(),
+    val connectivity: ConsumerConnectivity = ConsumerConnectivity.HOST
 )
 
 /**
