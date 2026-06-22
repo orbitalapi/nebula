@@ -177,3 +177,4 @@ buildNumber.properties
 node_modules/
 .next/
 /nebula-cli/nebula-cli.iml
+/nebula-runtime/nebula-runtime.iml
