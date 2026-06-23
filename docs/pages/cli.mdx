@@ -17,7 +17,7 @@ nebula --http=8099
 | Option           | Env var              | Default          | Description                                                                 |
 |------------------|----------------------|------------------|-----------------------------------------------------------------------------|
 | `--http`         |                      |                  | Start the HTTP server on the given port instead of running a script         |
-| `--network`      | `NEBULA_NETWORK`     | `nebula_network` | The name of the docker network containers are attached to (created if absent) |
+| `--network`      | `NEBULA_NETWORK`     | `nebula_network` | Identifies the docker network to attach started containers to. Only used in `network` mode (see below); in `host` mode an isolated network is always created |
 | `--connectivity` | `NEBULA_CONNECTIVITY`| `host`           | How the host + port of each container is reported to consumers (see below)  |
 | `-v`, `--verbose`|                      | `false`          | Enable verbose output                                                       |
 

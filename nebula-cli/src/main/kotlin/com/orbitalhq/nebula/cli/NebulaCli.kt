@@ -67,13 +67,12 @@ class Nebula : Callable<Int> {
     private var currentStackRunner: StackRunner? = null
 
     override fun call(): Int {
+        spec.commandLine().out.println("Nebula emitting container coordinates for $connectivity connectivity")
         val networkOrError = resolveNetwork()
         if (networkOrError.isFailure) {
             return spec.exitCodeOnExecutionException()
         }
         val network = networkOrError.getOrThrow()
-        spec.commandLine().out.println("Nebula using network name $networkName maps to ${network.id}")
-        spec.commandLine().out.println("Nebula emitting container coordinates for $connectivity connectivity")
         val nebulaConfig = NebulaConfig(networkName, network, connectivity)
         when {
             scriptFile != null -> return executeScript(nebulaConfig)
@@ -88,16 +87,25 @@ class Nebula : Callable<Int> {
     /**
      * Resolves the docker network to attach child containers to.
      *
-     * In `network` connectivity mode Nebula is running inside a container
-     * alongside its consumers (eg. Orbital in docker-compose), so we attach
-     * children to *our own* network - this is the only reliable way to pick the
-     * right one when several `*_$networkName` networks exist on the host (eg.
-     * multiple compose projects). In `host` mode we fall back to looking up (or
-     * creating) a network by name.
+     * In `network` connectivity mode Nebula runs inside a container alongside
+     * its consumers (eg. Orbital in docker-compose), so we attach children to
+     * *our own* network - this is the only reliable way to pick the right one
+     * when several `*_$networkName` networks exist on the host (eg. multiple
+     * compose projects).
+     *
+     * In `host` mode consumers reach containers via host port-mapping, so the
+     * network identity is irrelevant - we always create an isolated network
+     * (enough for intra-stack DNS aliases to resolve) and avoid any docker
+     * network discovery that could fail.
      */
     private fun resolveNetwork(): Result<Network> = when (connectivity) {
         ConsumerConnectivity.NETWORK -> resolveOwnContainerNetwork()
-        ConsumerConnectivity.HOST -> discoverActualNetworkName()
+        ConsumerConnectivity.HOST -> {
+            spec.commandLine().out.println(
+                "Nebula running in host connectivity mode - started containers will be placed on an isolated docker network and reached via mapped ports"
+            )
+            Result.success(Network.newNetwork())
+        }
     }
 
     /**
@@ -106,6 +114,14 @@ class Nebula : Callable<Int> {
      * [networkName].
      */
     private fun resolveOwnContainerNetwork(): Result<Network> {
+        if (!isRunningInContainer()) {
+            return fail(
+                "Running with --connectivity=network, but Nebula does not appear to be running inside a container. " +
+                    "This mode is for running alongside consumers on a shared docker network (eg. docker-compose). " +
+                    "Use --connectivity=host (the default) when running on the host directly."
+            )
+        }
+
         val containerId = readOwnContainerId()
             ?: return fail(
                 "Running with --connectivity=network, but Nebula's own container id could not be read from /etc/hostname. " +
@@ -133,26 +149,6 @@ class Nebula : Callable<Int> {
         )
     }
 
-    private fun discoverActualNetworkName():Result<Network> {
-        val dockerClient = DockerClientFactory.lazyClient()
-        val networks = dockerClient.listNetworksCmd().withNameFilter(networkName).exec()
-        return when (networks.size) {
-            0 -> {
-                spec.commandLine().out.println("A network named $networkName does not exist - will create a temporary, isolated network")
-                Result.success(Network.newNetwork())
-            }
-            1 -> {
-                val network = networks.single()
-                return Result.success(ExistingDockerNetwork(network.name))
-            }
-            else -> {
-                spec.commandLine().err.println("Multiple networks were found matching the provided name $networkName - provide a more specific name, or remove the other networks")
-                networks.forEach { spec.commandLine().err.println(it.name) }
-                Result.failure(IllegalArgumentException("Multiple networks were found"))
-            }
-        }
-    }
-
     private fun fail(message: String): Result<Network> {
         spec.commandLine().err.println(message)
         return Result.failure(IllegalStateException(message))
@@ -167,6 +163,25 @@ class Nebula : Callable<Int> {
         runCatching { File("/etc/hostname").readText().trim() }
             .getOrNull()
             ?.takeIf { it.isNotBlank() }
+
+    /**
+     * Best-effort detection of whether Nebula is running inside a container.
+     *
+     * Docker writes `/.dockerenv` at the container root; podman uses
+     * `/run/.containerenv`. As a fallback we scan `/proc/1/cgroup` for a known
+     * container runtime - this is unreliable under cgroup v2, hence only a
+     * fallback.
+     */
+    private fun isRunningInContainer(): Boolean {
+        if (File("/.dockerenv").exists() || File("/run/.containerenv").exists()) {
+            return true
+        }
+        return runCatching {
+            File("/proc/1/cgroup").readText().lineSequence().any { line ->
+                line.contains("docker") || line.contains("containerd") || line.contains("kubepods")
+            }
+        }.getOrDefault(false)
+    }
 
     private fun executeScript(nebulaConfig: NebulaConfig): Int {
         val file = scriptFile ?: throw ParameterException(spec.commandLine(), "Script file is required")
