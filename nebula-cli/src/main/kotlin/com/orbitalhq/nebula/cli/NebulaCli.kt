@@ -101,10 +101,14 @@ class Nebula : Callable<Int> {
     private fun resolveNetwork(): Result<Network> = when (connectivity) {
         ConsumerConnectivity.NETWORK -> resolveOwnContainerNetwork()
         ConsumerConnectivity.HOST -> {
+            val network = Network.newNetwork()
+            // getName() is the docker network name testcontainers will create, and
+            // (unlike getId()) doesn't force the network to be created just to log it.
+            val networkName = (network as? Network.NetworkImpl)?.name ?: network.id
             spec.commandLine().out.println(
-                "Nebula running in host connectivity mode - started containers will be placed on an isolated docker network and reached via mapped ports"
+                "Nebula running in host connectivity mode - creating an isolated docker network '$networkName' for started containers (reached via mapped ports)"
             )
-            Result.success(Network.newNetwork())
+            Result.success(network)
         }
     }
 
