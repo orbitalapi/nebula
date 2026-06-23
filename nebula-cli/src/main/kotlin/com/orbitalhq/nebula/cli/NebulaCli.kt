@@ -103,8 +103,10 @@ class Nebula : Callable<Int> {
         ConsumerConnectivity.NETWORK -> resolveOwnContainerNetwork()
         ConsumerConnectivity.HOST -> {
             // Give the isolated network a readable, identifiable name (eg.
-            // nebula-focused-turing) rather than testcontainers' default UUID.
-            val isolatedNetworkName = "nebula-${Names.randomName()}"
+            // nebula-focused-turing-a3k9z) rather than testcontainers' default UUID.
+            // The random suffix avoids name collisions with networks left over from
+            // earlier runs (which aren't reaped when ryuk is disabled).
+            val isolatedNetworkName = "nebula-${Names.randomName()}-${randomSuffix(5)}"
             val network = Network.builder()
                 .createNetworkCmdModifier { cmd -> cmd.withName(isolatedNetworkName) }
                 .build()
@@ -304,6 +306,12 @@ class Nebula : Callable<Int> {
 
 fun main(args: Array<String>): Unit =
     exitProcess(CommandLine(Nebula()).setCaseInsensitiveEnumValuesAllowed(true).execute(*args))
+
+/** A random lowercase-alphanumeric string of [length] characters. */
+private fun randomSuffix(length: Int): String {
+    val pool = ('a'..'z') + ('0'..'9')
+    return (1..length).map { pool.random() }.joinToString("")
+}
 
 /**
  * From the set of networks a container is attached to, selects the one its
