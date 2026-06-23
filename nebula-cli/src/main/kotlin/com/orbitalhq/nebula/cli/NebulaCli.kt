@@ -1,6 +1,7 @@
 package com.orbitalhq.nebula.cli
 
 import arrow.core.getOrElse
+import com.orbitalhq.nebula.ConsumerConnectivity
 import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.NebulaStackWithSource
@@ -8,6 +9,7 @@ import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.runtime.NebulaCompilationException
 import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
 import com.orbitalhq.nebula.runtime.server.NebulaServer
+import com.orbitalhq.nebula.utils.Names
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.junit.runner.Description
 import org.junit.runners.model.Statement
@@ -51,17 +53,28 @@ class Nebula : Callable<Int> {
     @Option(names = ["--network"], description = ["The name of the docker network created"], defaultValue = "\${NEBULA_NETWORK:-nebula_network}")
     lateinit var networkName: String
 
+    @Option(
+        names = ["--connectivity"],
+        description = [
+            "How consumers reach the started containers. ",
+            "host (default): emit localhost + host-mapped ports (developer CLI / Linux host-networking). ",
+            "network: emit the container's network alias + internal port, for consumers on the same docker network (eg. Orbital in docker-compose)."
+        ],
+        defaultValue = "\${NEBULA_CONNECTIVITY:-host}"
+    )
+    lateinit var connectivity: ConsumerConnectivity
+
     private var fileWatcher: FileWatcher? = null
     private var currentStackRunner: StackRunner? = null
 
     override fun call(): Int {
-        val networkOrError = discoverActualNetworkName()
+        spec.commandLine().out.println("Nebula emitting container coordinates for $connectivity connectivity")
+        val networkOrError = resolveNetwork()
         if (networkOrError.isFailure) {
             return spec.exitCodeOnExecutionException()
         }
         val network = networkOrError.getOrThrow()
-        spec.commandLine().out.println("Nebula using network name $networkName maps to ${network.id}")
-        val nebulaConfig = NebulaConfig(networkName, network)
+        val nebulaConfig = NebulaConfig(networkName, network, connectivity)
         when {
             scriptFile != null -> return executeScript(nebulaConfig)
             httpPort != null -> return startHttpServer(nebulaConfig)
@@ -72,24 +85,111 @@ class Nebula : Callable<Int> {
         }
     }
 
-    private fun discoverActualNetworkName():Result<Network> {
-        val dockerClient = DockerClientFactory.lazyClient()
-        val networks = dockerClient.listNetworksCmd().withNameFilter(networkName).exec()
-        return when (networks.size) {
-            0 -> {
-                spec.commandLine().out.println("A network named $networkName does not exist - will create a temporary, isolated network")
-                Result.success(Network.newNetwork())
-            }
-            1 -> {
-                val network = networks.single()
-                return Result.success(ExistingDockerNetwork(network.name))
-            }
-            else -> {
-                spec.commandLine().err.println("Multiple networks were found matching the provided name $networkName - provide a more specific name, or remove the other networks")
-                networks.forEach { spec.commandLine().err.println(it.name) }
-                Result.failure(IllegalArgumentException("Multiple networks were found"))
-            }
+    /**
+     * Resolves the docker network to attach child containers to.
+     *
+     * In `network` connectivity mode Nebula runs inside a container alongside
+     * its consumers (eg. Orbital in docker-compose), so we attach children to
+     * *our own* network - this is the only reliable way to pick the right one
+     * when several `*_$networkName` networks exist on the host (eg. multiple
+     * compose projects).
+     *
+     * In `host` mode consumers reach containers via host port-mapping, so the
+     * network identity is irrelevant - we always create an isolated network
+     * (enough for intra-stack DNS aliases to resolve) and avoid any docker
+     * network discovery that could fail.
+     */
+    private fun resolveNetwork(): Result<Network> = when (connectivity) {
+        ConsumerConnectivity.NETWORK -> resolveOwnContainerNetwork()
+        ConsumerConnectivity.HOST -> {
+            // Give the isolated network a readable, identifiable name (eg.
+            // nebula-focused-turing-a3k9z) rather than testcontainers' default UUID.
+            // The random suffix avoids name collisions with networks left over from
+            // earlier runs (which aren't reaped when ryuk is disabled).
+            val isolatedNetworkName = "nebula-${Names.randomName()}-${randomSuffix(5)}"
+            val network = Network.builder()
+                .createNetworkCmdModifier { cmd -> cmd.withName(isolatedNetworkName) }
+                .build()
+            spec.commandLine().out.println(
+                "Nebula running in host connectivity mode - creating an isolated docker network '$isolatedNetworkName' for started containers (reached via mapped ports)"
+            )
+            Result.success(network)
         }
+    }
+
+    /**
+     * Determines the network by inspecting the container Nebula itself is
+     * running in, and selecting the attached network whose name matches
+     * [networkName].
+     */
+    private fun resolveOwnContainerNetwork(): Result<Network> {
+        if (!isRunningInContainer()) {
+            return fail(
+                "Running with --connectivity=network, but Nebula does not appear to be running inside a container. " +
+                    "This mode is for running alongside consumers on a shared docker network (eg. docker-compose). " +
+                    "Use --connectivity=host (the default) when running on the host directly."
+            )
+        }
+
+        val containerId = readOwnContainerId()
+            ?: return fail(
+                "Running with --connectivity=network, but Nebula's own container id could not be read from /etc/hostname. " +
+                    "This mode requires Nebula to run inside a container; use --connectivity=host when running on the host directly."
+            )
+
+        val dockerClient = DockerClientFactory.lazyClient()
+        val container = try {
+            dockerClient.inspectContainerCmd(containerId).exec()
+        } catch (e: Exception) {
+            return fail(
+                "Running with --connectivity=network, but Nebula could not inspect its own container ('$containerId') " +
+                    "to determine its docker network: ${e.message}. " +
+                    "If a custom hostname is set on the container, /etc/hostname no longer matches the container id."
+            )
+        }
+
+        val attachedNetworks = container.networkSettings.networks.keys
+        return selectAttachedNetwork(attachedNetworks, networkName).fold(
+            onSuccess = { name ->
+                spec.commandLine().out.println("Nebula detected it is running on docker network '$name' - child containers will be attached to it")
+                Result.success(ExistingDockerNetwork(name))
+            },
+            onFailure = { fail(it.message ?: "Could not determine Nebula's docker network") }
+        )
+    }
+
+    private fun fail(message: String): Result<Network> {
+        spec.commandLine().err.println(message)
+        return Result.failure(IllegalStateException(message))
+    }
+
+    /**
+     * The container id Nebula is running as. Inside a container `/etc/hostname`
+     * holds the short container id (unless a custom hostname was set), which
+     * docker can resolve for an inspect call.
+     */
+    private fun readOwnContainerId(): String? =
+        runCatching { File("/etc/hostname").readText().trim() }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+
+    /**
+     * Best-effort detection of whether Nebula is running inside a container.
+     *
+     * Docker writes `/.dockerenv` at the container root; podman uses
+     * `/run/.containerenv`. As a fallback we scan `/proc/1/cgroup` for a known
+     * container runtime - this is unreliable under cgroup v2, hence only a
+     * fallback.
+     */
+    private fun isRunningInContainer(): Boolean {
+        if (File("/.dockerenv").exists() || File("/run/.containerenv").exists()) {
+            return true
+        }
+        return runCatching {
+            File("/proc/1/cgroup").readText().lineSequence().any { line ->
+                line.contains("docker") || line.contains("containerd") || line.contains("kubepods")
+            }
+        }.getOrDefault(false)
     }
 
     private fun executeScript(nebulaConfig: NebulaConfig): Int {
@@ -204,7 +304,48 @@ class Nebula : Callable<Int> {
     }
 }
 
-fun main(args: Array<String>): Unit = exitProcess(CommandLine(Nebula()).execute(*args))
+fun main(args: Array<String>): Unit =
+    exitProcess(CommandLine(Nebula()).setCaseInsensitiveEnumValuesAllowed(true).execute(*args))
+
+/** A random lowercase-alphanumeric string of [length] characters. */
+private fun randomSuffix(length: Int): String {
+    val pool = ('a'..'z') + ('0'..'9')
+    return (1..length).map { pool.random() }.joinToString("")
+}
+
+/**
+ * From the set of networks a container is attached to, selects the one its
+ * child containers should join.
+ *
+ * A container can be attached to several networks at once, so [identifier]
+ * (the `--network` value) is used to disambiguate. It is only *needed* when
+ * there is more than one network:
+ *
+ *  - exactly one network matches [identifier] -> use it;
+ *  - nothing matches but the container is on a single network -> use it
+ *    (the choice is unambiguous, so the filter is irrelevant);
+ *  - otherwise (several match, or several attached and none match) -> fail,
+ *    rather than guess, so the caller can ask for a more specific `--network`.
+ */
+fun selectAttachedNetwork(attachedNetworks: Set<String>, identifier: String): Result<String> {
+    val matches = attachedNetworks.filter { it.contains(identifier) }
+    return when {
+        matches.size == 1 -> Result.success(matches.single())
+        matches.isEmpty() && attachedNetworks.size == 1 -> Result.success(attachedNetworks.single())
+        matches.isEmpty() -> Result.failure(
+            IllegalStateException(
+                "Running with --connectivity=network, but Nebula is attached to multiple networks ($attachedNetworks), " +
+                    "none of which contain '$identifier'. Set --network (or NEBULA_NETWORK) to match your network name."
+            )
+        )
+        else -> Result.failure(
+            IllegalStateException(
+                "Running with --connectivity=network, but Nebula is attached to multiple networks matching '$identifier': $matches. " +
+                    "Set --network (or NEBULA_NETWORK) to a more specific name."
+            )
+        )
+    }
+}
 
 class ExistingDockerNetwork(private val id: String) : Network {
     override fun close() {

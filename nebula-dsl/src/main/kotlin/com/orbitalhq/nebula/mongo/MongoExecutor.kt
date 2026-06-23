@@ -10,11 +10,10 @@ import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.core.ComponentName
 import com.orbitalhq.nebula.core.ComponentType
-import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
+import com.orbitalhq.nebula.endpointFor
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.logging.LoggerName
-import com.orbitalhq.nebula.utils.updateHostReferences
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.bson.Document
 import org.testcontainers.containers.MongoDBContainer
@@ -44,17 +43,27 @@ class MongoExecutor(private val config: MongoConfig, loggers: List<LoggerName>) 
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
         eventSource.startContainerAndEmitEvents(mongoContainer, name) {
+            val internalPort = MONGO_INTERNAL_PORT
+            val endpoint = nebulaConfig.endpointFor(mongoContainer, config.componentName, internalPort)
+            // The TestContainers connectionString embeds the host-mapped coordinates;
+            // swap them for the resolved endpoint so the emitted string matches the mode.
+            val emittedConnectionString = mongoContainer.connectionString.replace(
+                "${mongoContainer.host}:${mongoContainer.getMappedPort(internalPort)}",
+                endpoint.hostAndPort
+            )
             componentInfo = ComponentInfo(
-                containerInfoFrom(mongoContainer),
+                containerInfoFrom(mongoContainer, endpoint.host),
                 MongoContainerConfig(
-                    mongoContainer.connectionString,
-                    mongoContainer.firstMappedPort
+                    emittedConnectionString,
+                    endpoint.host,
+                    endpoint.port
                 ),
                 type = type,
                 name = name,
                 id = id
             )
 
+            // Nebula's own client connects via the host-mapped connection string.
             val mongoClient = MongoClients.create(mongoContainer.connectionString)
             // Force creation of the database
             val mongoDb = mongoClient.getDatabase(config.databaseName)
@@ -93,13 +102,9 @@ class MongoExecutor(private val config: MongoConfig, loggers: List<LoggerName>) 
 
 data class MongoContainerConfig(
     val connectionString: String,
+    val host: String,
     val port: Int
-) : HostNameAwareContainerConfig<MongoContainerConfig> {
-    override fun updateHostReferences(containerHost: String, publicHost: String): MongoContainerConfig {
-        return MongoContainerConfig(
-            connectionString.updateHostReferences(containerHost, publicHost),
-            port
-        )
-    }
+)
 
-}
+// The port MongoDB listens on inside the container.
+private const val MONGO_INTERNAL_PORT = 27017

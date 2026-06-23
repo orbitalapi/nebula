@@ -9,7 +9,7 @@ import mu.KotlinLogging
 private val logger: KLogger = KotlinLogging.logger {}
 
 interface S3Dsl : InfraDsl {
-    fun s3(imageName: String = "localstack/localstack:latest", componentName: String = "s3", dsl: S3Builder.(KLogger) -> Unit): S3Executor {
+    fun s3(imageName: String = "localstack/localstack:3.0.2", componentName: String = "s3", dsl: S3Builder.(KLogger) -> Unit): S3Executor {
         val builder = S3Builder(imageName, componentName)
         builder.dsl(logger)
         return this.add(S3Executor(builder.build(), loggers = listOf(logger.name)))

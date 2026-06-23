@@ -7,11 +7,10 @@ import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.containerInfoFrom
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
-import com.orbitalhq.nebula.core.HostNameAwareContainerConfig
+import com.orbitalhq.nebula.endpointFor
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.logging.LoggerName
-import com.orbitalhq.nebula.utils.updateHostReferences
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -62,14 +61,25 @@ class DatabaseExecutor(private val config: DatabaseConfig, loggers: List<LoggerN
         setupJooq()
         createTablesAndLoadData()
 
+        // The internal port the DB listens on inside the container (5432, 3306, ...).
+        val internalPort = databaseContainer.exposedPorts.first()
+        val endpoint = nebulaConfig.endpointFor(databaseContainer, config.componentName, internalPort)
+        // The TestContainers jdbcUrl embeds the host-mapped coordinates; swap them
+        // for the resolved endpoint so the emitted url matches the connectivity mode.
+        val emittedJdbcUrl = databaseContainer.jdbcUrl.replace(
+            "${databaseContainer.host}:${databaseContainer.getMappedPort(internalPort)}",
+            endpoint.hostAndPort
+        )
+
         componentInfo =  ComponentInfo(
-            containerInfoFrom(databaseContainer),
+            containerInfoFrom(databaseContainer, endpoint.host),
             DatabaseContainerConfig(
                 databaseContainer.databaseName,
-                databaseContainer.jdbcUrl,
+                emittedJdbcUrl,
                 databaseContainer.username,
                 databaseContainer.password,
-                databaseContainer.firstMappedPort.toString()
+                endpoint.host,
+                endpoint.port.toString()
             ),
             type = type,
             name = name,
@@ -159,9 +169,6 @@ data class DatabaseContainerConfig(
     val jdbcUrl: String,
     val username: String,
     val password: String,
+    val host: String,
     val port: String
-) : HostNameAwareContainerConfig<DatabaseContainerConfig> {
-    override fun updateHostReferences(containerHost: String, publicHost: String): DatabaseContainerConfig {
-        return copy(jdbcUrl = jdbcUrl.updateHostReferences(containerHost, publicHost))
-    }
-}
+)

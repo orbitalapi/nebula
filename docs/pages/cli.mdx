@@ -1,0 +1,84 @@
+---
+title: CLI & networking
+---
+
+## CLI options
+
+Nebula either runs a script directly, or starts an HTTP server that accepts stacks over HTTP.
+
+```bash
+# Run a script
+nebula my-stack.nebula.kts
+
+# Start the HTTP server on port 8099
+nebula --http=8099
+```
+
+| Option           | Env var              | Default          | Description                                                                 |
+|------------------|----------------------|------------------|-----------------------------------------------------------------------------|
+| `--http`         |                      |                  | Start the HTTP server on the given port instead of running a script         |
+| `--network`      | `NEBULA_NETWORK`     | `nebula_network` | Disambiguates which docker network to attach started containers to, when Nebula is attached to more than one. Only used in `network` mode (see below); in `host` mode an isolated network is always created |
+| `--connectivity` | `NEBULA_CONNECTIVITY`| `host`           | How the host + port of each container is reported to consumers (see below)  |
+| `-v`, `--verbose`|                      | `false`          | Enable verbose output                                                       |
+
+## Connectivity modes
+
+For every container it starts, Nebula reports a `host` and `port` (and connection strings
+such as `jdbcUrl` or `bootstrapServers`). `--connectivity` controls which coordinates are
+reported, depending on where the *consumer* sits relative to the containers:
+
+| Mode      | Host reported      | Port reported           | Use when                                                                 |
+|-----------|--------------------|-------------------------|--------------------------------------------------------------------------|
+| `host`    | `localhost`        | host-mapped (external)  | The consumer reaches containers from the host machine — a developer running the CLI, or a Linux host-networking deployment. **(default)** |
+| `network` | container's alias  | internal container port | The consumer is another container on the same docker network — e.g. Orbital in a docker-compose deployment. |
+
+In `network` mode consumers talk to the containers directly over the shared docker network,
+so no host port-mapping is involved. Nebula attaches the containers it starts to its **own**
+network — it inspects the container it is running in to find which network(s) it is on.
+
+A container can be attached to more than one network, so when there are several, `--network`
+(default `nebula_network`) selects which one to use — Nebula picks the attached network whose
+name contains that value. This works even when several compose projects
+(`project-a_nebula_network`, `project-b_nebula_network`, …) run on the same host, since each
+Nebula only sees its own. If Nebula is on a single network, `--network` is not needed; if it
+matches more than one, set `--network` to a more specific name.
+
+```bash
+# Reporting in-network coordinates (e.g. running alongside Orbital in docker-compose)
+nebula --http=8099 --connectivity=network
+```
+
+This only affects what Nebula *reports*. Nebula's own internal clients (used to create
+tables, topics, buckets, etc.) always reach the containers via the host-mapped route,
+regardless of this setting.
+
+### Enabling network mode in docker-compose
+
+When Nebula runs alongside Orbital in docker-compose, set `network` mode via the
+`NEBULA_CONNECTIVITY` environment variable:
+
+```yaml
+  nebula:
+    image: orbitalhq/nebula:latest
+    networks:
+      - nebula_network
+    ports:
+      - "8099:8099"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # let Nebula control Docker
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - NEBULA_CONNECTIVITY=network
+```
+
+Nebula attaches the containers it starts to the same network it is on (here
+`nebula_network`, which compose names `<project>_nebula_network`), so Orbital and the
+started containers can talk to each other directly — no `host.docker.internal` or
+host-networking workarounds required.
+
+Alternatively, pass the flag as a `command:` (appended to the image's entrypoint, which
+already includes `--http=8099`):
+
+```yaml
+    command: ["--connectivity=network"]
+```

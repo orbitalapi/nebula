@@ -13,40 +13,13 @@ data class ComponentInfoWithState(
     val id: String,
     val state: ComponentLifecycleEvent,
     val componentInfo: ComponentInfo<*>?
-) {
-    /**
-     * Returns an updated StackStateEvent where references to the container's host
-     * are replaced with the provided host.
-     *
-     * This is intended for usecases where Nebula is on a different server from
-     * the consumers. This was references to things like "localhost" get replaced
-     * with the host that the consumer uses to reach nebula.
-     */
-    fun updateHostReferences(host: String): ComponentInfoWithState {
-        return if (componentInfo != null) {
-            copy(componentInfo = componentInfo.updateHostReferences(host))
-        } else {
-            this
-        }
-    }
-}
+)
 typealias NebulaEnvVariablesMap = Map<StackName, Map<ComponentType, Map<EnvVarKey, EnvVarValue>>>
 typealias StackName = String
 typealias ComponentType = String
 typealias ComponentName = String
 typealias EnvVarKey = String
 typealias EnvVarValue = String
-
-/**
- * An optional interface for ContainerConfig classes,
- * which are exposing host details.
- *
- * Allows us to update host names to the host name known to consumers
- */
-interface HostNameAwareContainerConfig<T> {
-    fun updateHostReferences(containerHost: String, publicHost: String): T
-}
-
 
 data class ComponentInfo<T>(
     val container: ContainerInfo?,
@@ -57,23 +30,6 @@ data class ComponentInfo<T>(
     val name: ComponentName,
     val id: String
 ) {
-    /**
-     * Returns an updated StackStateEvent where references to the container's host
-     * are replaced with the provided host.
-     *
-     * This is intended for usecases where Nebula is on a different server from
-     * the consumers. This was references to things like "localhost" get replaced
-     * with the host that the consumer uses to reach nebula.
-     */
-    fun updateHostReferences(host: String): ComponentInfo<T> {
-        return if (container != null && componentConfig is HostNameAwareContainerConfig<*>) {
-            val containerHost = container.host
-            copy(componentConfig = componentConfig.updateHostReferences(containerHost, host) as T)
-        } else {
-            this
-        }
-    }
-
     @get:JsonIgnore
     val componentConfigMap: Map<String, Any>
         get() {
@@ -94,24 +50,7 @@ data class StackStateEvent(
     val stackName: String,
     val stateCounts: Map<ComponentState, Int>,
     val stackState: NebulaStackState
-) {
-    /**
-     * Returns an updated StackStateEvent where references to the container's host
-     * are replaced with the provided host.
-     *
-     * This is intended for usecases where Nebula is on a different server from
-     * the consumers. This was references to things like "localhost" get replaced
-     * with the host that the consumer uses to reach nebula.
-     */
-    fun updateHostReferences(host: String): StackStateEvent {
-        val updatedStackState = stackState.mapValues { (_, componentInfoList) ->
-            componentInfoList.map { componentInfoWithState ->
-                componentInfoWithState.updateHostReferences(host)
-            }
-        }
-        return copy(stackState = updatedStackState)
-    }
-}
+)
 
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")

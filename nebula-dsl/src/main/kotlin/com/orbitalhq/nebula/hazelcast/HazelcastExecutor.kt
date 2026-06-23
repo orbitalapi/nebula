@@ -9,6 +9,7 @@ import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
 import com.orbitalhq.nebula.core.ComponentName
 import com.orbitalhq.nebula.core.ComponentType
+import com.orbitalhq.nebula.endpointFor
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.logging.LoggerName
@@ -25,8 +26,12 @@ val StackRunner.hazelcast: List<HazelcastExecutor>
 
 
 data class HazelcastContainerConfig(
+    val host: String,
     val port: Int
 )
+
+// The port Hazelcast listens on inside the container.
+private const val HAZELCAST_INTERNAL_PORT = 5701
 class HazelcastExecutor(private val config: HazelcastConfig, loggers: List<LoggerName>) : InfrastructureComponent<HazelcastContainerConfig> {
     companion object {
         private val logger = KotlinLogging.logger {}
@@ -41,16 +46,18 @@ class HazelcastExecutor(private val config: HazelcastConfig, loggers: List<Logge
     override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig): ComponentInfo<HazelcastContainerConfig> {
         eventSource.starting()
         container = GenericContainer(DockerImageName.parse(config.imageName))
-            .withExposedPorts(5701)
+            .withExposedPorts(HAZELCAST_INTERNAL_PORT)
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
         container.waitingFor(Wait.forListeningPort())
         eventSource.startContainerAndEmitEvents(container, name)
 
+        val endpoint = nebulaConfig.endpointFor(container, config.componentName, HAZELCAST_INTERNAL_PORT)
         componentInfo = ComponentInfo(
-            containerInfoFrom(container),
+            containerInfoFrom(container, endpoint.host),
             HazelcastContainerConfig(
-                container.firstMappedPort
+                endpoint.host,
+                endpoint.port
             ),
             type = type,
             name = name,
