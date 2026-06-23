@@ -15,7 +15,12 @@ class SelectAttachedNetworkTest : DescribeSpec({
                 .getOrNull() shouldBe "project-b_nebula_network"
         }
 
-        it("fails when no attached network matches") {
+        it("uses the only attached network even when it does not match the identifier") {
+            selectAttachedNetwork(setOf("some-custom-network"), "nebula_network")
+                .getOrNull() shouldBe "some-custom-network"
+        }
+
+        it("fails when attached to several networks and none match") {
             selectAttachedNetwork(setOf("bridge", "host"), "nebula_network")
                 .isFailure shouldBe true
         }

@@ -17,7 +17,7 @@ nebula --http=8099
 | Option           | Env var              | Default          | Description                                                                 |
 |------------------|----------------------|------------------|-----------------------------------------------------------------------------|
 | `--http`         |                      |                  | Start the HTTP server on the given port instead of running a script         |
-| `--network`      | `NEBULA_NETWORK`     | `nebula_network` | Identifies the docker network to attach started containers to. Only used in `network` mode (see below); in `host` mode an isolated network is always created |
+| `--network`      | `NEBULA_NETWORK`     | `nebula_network` | Disambiguates which docker network to attach started containers to, when Nebula is attached to more than one. Only used in `network` mode (see below); in `host` mode an isolated network is always created |
 | `--connectivity` | `NEBULA_CONNECTIVITY`| `host`           | How the host + port of each container is reported to consumers (see below)  |
 | `-v`, `--verbose`|                      | `false`          | Enable verbose output                                                       |
 
@@ -34,10 +34,14 @@ reported, depending on where the *consumer* sits relative to the containers:
 
 In `network` mode consumers talk to the containers directly over the shared docker network,
 so no host port-mapping is involved. Nebula attaches the containers it starts to its **own**
-network — it inspects the container it is running in and picks the attached network whose name
-contains `--network` (default `nebula_network`). This works even when several compose projects
-(`project-a_nebula_network`, `project-b_nebula_network`, …) run on the same host. If Nebula is
-attached to more than one matching network, set `--network` to a more specific name.
+network — it inspects the container it is running in to find which network(s) it is on.
+
+A container can be attached to more than one network, so when there are several, `--network`
+(default `nebula_network`) selects which one to use — Nebula picks the attached network whose
+name contains that value. This works even when several compose projects
+(`project-a_nebula_network`, `project-b_nebula_network`, …) run on the same host, since each
+Nebula only sees its own. If Nebula is on a single network, `--network` is not needed; if it
+matches more than one, set `--network` to a more specific name.
 
 ```bash
 # Reporting in-network coordinates (e.g. running alongside Orbital in docker-compose)

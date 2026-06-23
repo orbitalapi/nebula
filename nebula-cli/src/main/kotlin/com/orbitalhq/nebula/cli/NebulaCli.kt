@@ -299,19 +299,28 @@ fun main(args: Array<String>): Unit =
     exitProcess(CommandLine(Nebula()).setCaseInsensitiveEnumValuesAllowed(true).execute(*args))
 
 /**
- * From the set of networks a container is attached to, selects the single one
- * whose name contains [identifier]. Returns a failure (rather than guessing)
- * when zero or more than one network matches, so callers can surface a clear
- * diagnostic.
+ * From the set of networks a container is attached to, selects the one its
+ * child containers should join.
+ *
+ * A container can be attached to several networks at once, so [identifier]
+ * (the `--network` value) is used to disambiguate. It is only *needed* when
+ * there is more than one network:
+ *
+ *  - exactly one network matches [identifier] -> use it;
+ *  - nothing matches but the container is on a single network -> use it
+ *    (the choice is unambiguous, so the filter is irrelevant);
+ *  - otherwise (several match, or several attached and none match) -> fail,
+ *    rather than guess, so the caller can ask for a more specific `--network`.
  */
 fun selectAttachedNetwork(attachedNetworks: Set<String>, identifier: String): Result<String> {
     val matches = attachedNetworks.filter { it.contains(identifier) }
-    return when (matches.size) {
-        1 -> Result.success(matches.single())
-        0 -> Result.failure(
+    return when {
+        matches.size == 1 -> Result.success(matches.single())
+        matches.isEmpty() && attachedNetworks.size == 1 -> Result.success(attachedNetworks.single())
+        matches.isEmpty() -> Result.failure(
             IllegalStateException(
-                "Running with --connectivity=network, but none of the networks Nebula is attached to ($attachedNetworks) " +
-                    "contain '$identifier'. Set --network (or NEBULA_NETWORK) to match your network name."
+                "Running with --connectivity=network, but Nebula is attached to multiple networks ($attachedNetworks), " +
+                    "none of which contain '$identifier'. Set --network (or NEBULA_NETWORK) to match your network name."
             )
         )
         else -> Result.failure(
