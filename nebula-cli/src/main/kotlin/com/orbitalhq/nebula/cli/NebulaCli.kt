@@ -9,6 +9,7 @@ import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.runtime.NebulaCompilationException
 import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
 import com.orbitalhq.nebula.runtime.server.NebulaServer
+import com.orbitalhq.nebula.utils.Names
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.junit.runner.Description
 import org.junit.runners.model.Statement
@@ -101,12 +102,14 @@ class Nebula : Callable<Int> {
     private fun resolveNetwork(): Result<Network> = when (connectivity) {
         ConsumerConnectivity.NETWORK -> resolveOwnContainerNetwork()
         ConsumerConnectivity.HOST -> {
-            val network = Network.newNetwork()
-            // getName() is the docker network name testcontainers will create, and
-            // (unlike getId()) doesn't force the network to be created just to log it.
-            val networkName = (network as? Network.NetworkImpl)?.name ?: network.id
+            // Give the isolated network a readable, identifiable name (eg.
+            // nebula-focused-turing) rather than testcontainers' default UUID.
+            val isolatedNetworkName = "nebula-${Names.randomName()}"
+            val network = Network.builder()
+                .createNetworkCmdModifier { cmd -> cmd.withName(isolatedNetworkName) }
+                .build()
             spec.commandLine().out.println(
-                "Nebula running in host connectivity mode - creating an isolated docker network '$networkName' for started containers (reached via mapped ports)"
+                "Nebula running in host connectivity mode - creating an isolated docker network '$isolatedNetworkName' for started containers (reached via mapped ports)"
             )
             Result.success(network)
         }
