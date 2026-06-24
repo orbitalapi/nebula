@@ -131,15 +131,18 @@ class DatabaseExecutor(private val config: DatabaseConfig, loggers: List<LoggerN
 
         val columns = table.data.first().keys
         val jooqTable = DSL.table(table.name)
+        val jooqColumns = columns.map { DSL.field(it) }
 
-        val insert = dsl.insertInto(jooqTable)
-            .columns(columns.map { DSL.field(it) })
-
+        // Insert one row at a time rather than as a single multi-row VALUES statement.
+        // Oracle doesn't support multi-row VALUES and jOOQ's emulation isn't portable here,
+        // whereas single-row inserts render to valid SQL on every supported database.
+        var insertedRows = 0
         table.data.forEach { row ->
-            insert.values(row.values.map { convertValue(it) })
+            insertedRows += dsl.insertInto(jooqTable)
+                .columns(jooqColumns)
+                .values(columns.map { convertValue(row[it]) })
+                .execute()
         }
-
-        val insertedRows = insert.execute()
         logger.info { "Inserted $insertedRows rows into ${table.name}" }
     }
 

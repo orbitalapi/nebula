@@ -55,7 +55,7 @@ npm start      # Start production server
 - **Project Reactor** for reactive programming
 
 ### Infrastructure Components
-The DSL supports: Kafka, HTTP servers, SQL databases (PostgreSQL/MySQL with JOOQ), MongoDB, S3 (via LocalStack), Hazelcast, Avro/Protobuf schemas.
+The DSL supports: Kafka, HTTP servers, SQL databases (PostgreSQL/MySQL/Oracle with JOOQ), MongoDB, S3 (via LocalStack), Hazelcast, Avro/Protobuf schemas.
 
 ## Code Patterns
 
