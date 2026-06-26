@@ -8,6 +8,7 @@ import mu.KotlinLogging
 import org.jooq.SQLDialect
 import org.testcontainers.containers.JdbcDatabaseContainer
 import org.testcontainers.containers.MySQLContainer
+import org.testcontainers.containers.OracleContainer
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 
@@ -19,6 +20,9 @@ interface SqlDsl : InfraDsl {
 
     fun mysql(imageName: String = "mysql:9", databaseName: String = "testDb", componentName: ComponentName = "mysql", dsl: DatabaseBuilder.(KLogger) -> Unit): DatabaseExecutor =
         database(MySQLContainer(DockerImageName.parse(imageName)), SQLDialect.MYSQL, "mysql", databaseName, componentName, dsl)
+
+    fun oracle(imageName: String = "gvenzl/oracle-xe:21-slim-faststart", databaseName: String = "testDb", componentName: ComponentName = "oracle", dsl: DatabaseBuilder.(KLogger) -> Unit): DatabaseExecutor =
+        database(OracleContainer(DockerImageName.parse(imageName)), SQLDialect.ORACLE, "oracle", databaseName, componentName, dsl)
 
     fun database(container: JdbcDatabaseContainer<*>, dialect: SQLDialect, type: String, databaseName: String, componentName: ComponentName, dsl: DatabaseBuilder.(KLogger) -> Unit): DatabaseExecutor {
         val builder = DatabaseBuilder(container, dialect, type, databaseName, componentName)

@@ -3,6 +3,7 @@ There are various SQL providers available, which all share a common DSL.
 
  * `postgres` : Declares an image using the `postgres:13` image by default
  * `mysql`: Declares an image using the `mysql:9` image by default
+ * `oracle`: Declares an image using the `gvenzl/oracle-xe:21-slim-faststart` image by default
 
 ```kotlin
 // use the default image.
@@ -73,6 +74,41 @@ postgres {
                 "name" to "Gadget",
                 "description" to "An amazing gadget",
                 "price" to BigDecimal("24.99")
+            )
+        )
+    )
+}
+```
+
+### Oracle
+Oracle works the same way as the other SQL providers, but a few Oracle-specific conventions apply:
+
+ * Use **uppercase** table and column names. Oracle folds unquoted identifiers to uppercase, and the
+   identifiers in the `data` maps are quoted when the rows are inserted, so they must match. Declaring
+   `CREATE TABLE USERS (...)` and using keys like `"USERNAME"` keeps the two in sync.
+ * Use Oracle-native types: `VARCHAR2` rather than `VARCHAR`/`TEXT`, `NUMBER` rather than `INTEGER`/`DECIMAL`,
+   and `GENERATED ALWAYS AS IDENTITY` rather than `SERIAL`. Oracle (pre-23c) has no `BOOLEAN` type — use
+   `NUMBER(1)` with `0`/`1` values.
+
+```kotlin
+oracle {
+    table(
+        "USERS", """
+        CREATE TABLE USERS (
+            ID VARCHAR2(36) PRIMARY KEY,
+            USERNAME VARCHAR2(100) NOT NULL,
+            IS_ACTIVE NUMBER(1),
+            LOGIN_COUNT NUMBER(10),
+            BALANCE NUMBER(10, 2)
+        )
+    """,
+    data = listOf(
+            mapOf(
+                "ID" to UUID.randomUUID().toString(),
+                "USERNAME" to "john_doe",
+                "IS_ACTIVE" to 1,
+                "LOGIN_COUNT" to 5,
+                "BALANCE" to BigDecimal("100.50")
             )
         )
     )

@@ -25,10 +25,12 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
       - name: Deploy with Maven
-        run: mvn clean deploy
+        run: mvn clean deploy --settings .mvn/settings.xml
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          JOOQ_REPO_USERNAME: ${{ secrets.JOOQ_REPO_USERNAME }}
+          JOOQ_REPO_PASSWORD: ${{ secrets.JOOQ_REPO_PASSWORD }}
       - name: Archive build output
         uses: actions/upload-artifact@v4
         with:

@@ -116,4 +116,92 @@ class SqlExecutorTest : DescribeSpec({
             (widget["id"] as Int) shouldBe 1
         }
     }
+
+    describe("Oracle database") {
+        afterTest {
+            infra.shutDownAll()
+        }
+
+        // Oracle folds unquoted identifiers to uppercase and jOOQ quotes them, so tables and
+        // columns are declared in uppercase here. Oracle types differ from Postgres: no UUID
+        // (stored as VARCHAR2), no BOOLEAN (NUMBER(1)), and identity columns instead of SERIAL.
+        it("should create tables and insert data with various types") {
+            infra = stack {
+                oracle {
+                    table(
+                        "USERS", """
+                        CREATE TABLE USERS (
+                            ID VARCHAR2(36) PRIMARY KEY,
+                            USERNAME VARCHAR2(100) NOT NULL,
+                            IS_ACTIVE NUMBER(1),
+                            LOGIN_COUNT NUMBER(10),
+                            BALANCE NUMBER(10, 2)
+                        )
+                    """, data = listOf(
+                            mapOf(
+                                "ID" to UUID.randomUUID().toString(),
+                                "USERNAME" to "john_doe",
+                                "IS_ACTIVE" to 1,
+                                "LOGIN_COUNT" to 5,
+                                "BALANCE" to BigDecimal("100.50")
+                            ),
+                            mapOf(
+                                "ID" to UUID.randomUUID().toString(),
+                                "USERNAME" to "jane_smith",
+                                "IS_ACTIVE" to 0,
+                                "LOGIN_COUNT" to 2,
+                                "BALANCE" to BigDecimal("75.25")
+                            )
+                        )
+                    )
+
+                    table(
+                        "PRODUCTS", """
+                        CREATE TABLE PRODUCTS (
+                            ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                            NAME VARCHAR2(100) NOT NULL,
+                            DESCRIPTION VARCHAR2(255),
+                            PRICE NUMBER(10, 2) NOT NULL
+                        )
+                    """, data = listOf(
+                            mapOf(
+                                "NAME" to "Widget",
+                                "DESCRIPTION" to "A fantastic widget",
+                                "PRICE" to BigDecimal("9.99")
+                            ),
+                            mapOf(
+                                "NAME" to "Gadget",
+                                "DESCRIPTION" to "An amazing gadget",
+                                "PRICE" to BigDecimal("24.99")
+                            )
+                        )
+                    )
+                }
+            }.start()
+
+            // Set up jOOQ DSL context
+            dsl = infra.database.single().dsl
+
+            // Test USERS table
+            val users = dsl.selectFrom("USERS").fetch()
+            users.size shouldBe 2
+
+            val johnDoe = users.first { it["USERNAME"] == "john_doe" }
+            johnDoe["USERNAME"] shouldBe "john_doe"
+            (johnDoe["IS_ACTIVE"] as Number).toInt() shouldBe 1
+            (johnDoe["LOGIN_COUNT"] as Number).toInt() shouldBe 5
+            (johnDoe["BALANCE"] as BigDecimal).toDouble() shouldBe 100.50
+
+            // Test PRODUCTS table
+            val products = dsl.selectFrom("PRODUCTS").fetch()
+            products.size shouldBe 2
+
+            val widget = products.first { it["NAME"] == "Widget" }
+            widget["DESCRIPTION"] shouldBe "A fantastic widget"
+            (widget["PRICE"] as BigDecimal).toDouble() shouldBe 9.99
+
+            // Test auto-incrementing identity column
+            (widget["ID"] as Number).toInt() shouldBe 1
+        }
+    }
 })
