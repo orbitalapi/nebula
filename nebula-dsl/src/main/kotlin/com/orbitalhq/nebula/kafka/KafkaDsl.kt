@@ -22,7 +22,8 @@ import kotlin.time.Duration
 private val logger: KLogger = KotlinLogging.logger {}
 
 interface KafkaDsl : InfraDsl {
-    fun kafka(imageName: String = "confluentinc/cp-kafka:6.2.2", componentName:ComponentName = "kafka", dsl: KafkaBuilder.(KLogger) -> Unit): KafkaExecutor {
+    // ConfluentKafkaContainer requires a KRaft-capable image: cp-kafka 7.4.0 or later
+    fun kafka(imageName: String = "confluentinc/cp-kafka:7.8.0", componentName:ComponentName = "kafka", dsl: KafkaBuilder.(KLogger) -> Unit): KafkaExecutor {
         val builder = KafkaBuilder(imageName, componentName)
         builder.dsl(logger)
         return this.add(KafkaExecutor(builder.build(), loggers = listOf(logger.name)))

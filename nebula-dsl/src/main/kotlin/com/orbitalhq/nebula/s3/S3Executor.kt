@@ -11,7 +11,7 @@ import com.orbitalhq.nebula.endpointFor
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.logging.LoggerName
-import org.testcontainers.containers.localstack.LocalStackContainer
+import org.testcontainers.localstack.LocalStackContainer
 import org.testcontainers.utility.DockerImageName
 import reactor.core.publisher.Flux
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
@@ -49,13 +49,13 @@ class S3Executor(private val config: S3Config, loggers: List<LoggerName>) : Infr
     override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig): ComponentInfo<LocalstackContainerConfig> {
         localstack = LocalStackContainer(DockerImageName.parse(config.imageName))
             // Always enable STS, as Orbital uses it for healthchecks
-            .withServices(LocalStackContainer.Service.S3, LocalStackContainer.Service.STS)
+            .withServices("s3", "sts")
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
 
         eventSource.startContainerAndEmitEvents(localstack, name)
         // Nebula's own client connects via the host-mapped endpoint.
-        val endpointOverride = localstack.getEndpointOverride(LocalStackContainer.Service.S3)
+        val endpointOverride = localstack.endpoint
         s3Client = S3Client.builder()
             .endpointOverride(endpointOverride)
             .credentialsProvider { AwsBasicCredentials.create(localstack.accessKey, localstack.secretKey) }
