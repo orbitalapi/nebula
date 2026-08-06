@@ -178,3 +178,6 @@ node_modules/
 .next/
 /nebula-cli/nebula-cli.iml
 /nebula-runtime/nebula-runtime.iml
+
+# Unexpanded Maven property dirs accidentally created by misconfigured plugin runs
+${project.build.directory}/
