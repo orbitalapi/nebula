@@ -65,11 +65,24 @@ class NebulaStack(
     }
 
     fun startComponents(config: NebulaConfig, hostConfig: HostConfig): Map<String, ComponentInfo<out Any?>> {
+        markStarted()
         stackStateEventSource.listenForEvents(name, components)
         logStream.attachLogStreams(components)
         return components.associate { component ->
             component.type to component.start(config, hostConfig)
         }
+    }
+
+    fun markStarted() {
+        isStarted.set(true)
+    }
+
+    /**
+     * Marks this stack as no longer running, so a later submission of the same
+     * source is started rather than treated as already running.
+     */
+    fun markStopped() {
+        isStarted.set(false)
     }
 
     override val components: List<InfrastructureComponent<*>>

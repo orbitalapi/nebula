@@ -6,6 +6,7 @@ import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
+import com.orbitalhq.nebula.core.ComponentState
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.logging.LoggerName
@@ -53,6 +54,13 @@ class HttpExecutor(private val config: HttpConfig, loggerNames: List<LoggerName>
         private set
 
     override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig):ComponentInfo<HttpServerConfig> {
+        // Starting twice would attempt to rebind the port the running server holds,
+        // failing with "address in use" and stranding the component in Starting.
+        componentInfo?.let { existing ->
+            if (currentState.state == ComponentState.Running) {
+                return existing
+            }
+        }
         eventSource.starting()
         server = embeddedServer(Netty, port = port) {
             routing {

@@ -197,6 +197,7 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
                 }
             }
         }
+        stackWithSource.stack.markStarted()
     }
 
     /**
@@ -227,6 +228,7 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
                 logger.error(e) { "Error during shut down of component ${it.name} in spec ${spec.name}" }
             }
         }
+        spec.stack.markStopped()
     }
 
 }
