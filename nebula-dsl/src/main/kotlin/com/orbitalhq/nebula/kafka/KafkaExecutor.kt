@@ -28,7 +28,9 @@ import org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CON
 import org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.errors.TopicExistsException
-import org.testcontainers.containers.KafkaContainer
+import org.testcontainers.containers.GenericContainer
+import org.testcontainers.kafka.ConfluentKafkaContainer
+import org.testcontainers.kafka.KafkaContainer
 import org.testcontainers.utility.DockerImageName
 import reactor.core.publisher.Flux
 import java.util.*
@@ -45,7 +47,7 @@ class KafkaExecutor(private val config: KafkaConfig, loggers: List<LoggerName>) 
     }
 
     override val type = "kafka"
-    private lateinit var kafkaContainer: KafkaContainer
+    private lateinit var kafkaContainer: GenericContainer<*>
     private val producerJobs = mutableListOf<Job>()
     private val producers = mutableListOf<Producer<*, *>>()
     override val name = config.componentName
@@ -66,14 +68,27 @@ class KafkaExecutor(private val config: KafkaConfig, loggers: List<LoggerName>) 
 
     override fun start(nebulaConfig: NebulaConfig, hostConfig: HostConfig): ComponentInfo<KafkaContainerConfig> {
 
-        kafkaContainer = KafkaContainer(DockerImageName.parse(config.imageName))
-            .withNetwork(nebulaConfig.network)
-            .withNetworkAliases(config.componentName)
+        val image = DockerImageName.parse(config.imageName)
+        // An extra in-network listener, advertised verbatim as <alias>:<port>. The
+        // containers' default listeners only advertise host-mapped or
+        // container-hostname coordinates, neither of which suits in-network consumers.
+        val networkListener = "${config.componentName}:$KAFKA_INTERNAL_BROKER_PORT"
+        kafkaContainer = if (config.imageName.contains("apache/kafka")) {
+            KafkaContainer(image)
+                .withListener(networkListener)
+                .withNetwork(nebulaConfig.network)
+                .withNetworkAliases(config.componentName)
+        } else {
+            ConfluentKafkaContainer(image)
+                .withListener(networkListener)
+                .withNetwork(nebulaConfig.network)
+                .withNetworkAliases(config.componentName)
+        }
 
         eventSource.startContainerAndEmitEvents(kafkaContainer, name)
 
         // Nebula's own admin client + producers connect via the host-mapped listener.
-        val bootstrapServers = kafkaContainer.bootstrapServers
+        val bootstrapServers = hostMappedBootstrapServers
         logger.info { "Kafka container started - bootstrap servers: $bootstrapServers" }
 
         // Create topics with specified partitions
@@ -113,13 +128,13 @@ class KafkaExecutor(private val config: KafkaConfig, loggers: List<LoggerName>) 
 
         // The coordinates consumers should use, resolved by connectivity mode:
         //  - HOST: the PLAINTEXT listener mapped onto the host (localhost:<mappedPort>)
-        //  - NETWORK: the in-network BROKER listener, reachable via the container's
-        //    network alias on nebula_network (alias:9092)
+        //  - NETWORK: the extra listener registered above, reachable via the
+        //    container's network alias on nebula_network (alias:19092)
         val (emittedHost, emittedPort, emittedBootstrapServers) = when (nebulaConfig.connectivity) {
             ConsumerConnectivity.HOST -> Triple(
                 kafkaContainer.host,
-                kafkaContainer.getMappedPort(KafkaContainer.KAFKA_PORT),
-                kafkaContainer.bootstrapServers
+                kafkaContainer.getMappedPort(KAFKA_EXTERNAL_PORT),
+                "PLAINTEXT://$hostMappedBootstrapServers"
             )
             ConsumerConnectivity.NETWORK -> Triple(
                 config.componentName,
@@ -154,8 +169,13 @@ class KafkaExecutor(private val config: KafkaConfig, loggers: List<LoggerName>) 
 
     val bootstrapServers: String
         get() {
-            return kafkaContainer.bootstrapServers
+            return hostMappedBootstrapServers
         }
+
+    // Mirrors getBootstrapServers() on both KafkaContainer and ConfluentKafkaContainer,
+    // which share no common Kafka supertype.
+    private val hostMappedBootstrapServers: String
+        get() = "${kafkaContainer.host}:${kafkaContainer.getMappedPort(KAFKA_EXTERNAL_PORT)}"
 
     private fun createKafkaProducer(
         bootstrapServers: String,
@@ -205,5 +225,10 @@ data class KafkaContainerConfig(
     val port: Int
 )
 
-// The port the in-network (BROKER) Kafka listener advertises on nebula_network.
-private const val KAFKA_INTERNAL_BROKER_PORT = 9092
+// The in-container port of the host-mapped PLAINTEXT listener both Kafka container
+// flavours expose (their KAFKA_PORT constants are not public).
+private const val KAFKA_EXTERNAL_PORT = 9092
+
+// The port of the extra in-network listener Nebula registers, advertised via the
+// component's network alias. 9092-9094 are taken by the containers' default listeners.
+private const val KAFKA_INTERNAL_BROKER_PORT = 19092

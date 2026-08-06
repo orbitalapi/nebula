@@ -16,7 +16,7 @@ import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.logging.LoggerName
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.bson.Document
-import org.testcontainers.containers.MongoDBContainer
+import org.testcontainers.mongodb.MongoDBContainer
 import org.testcontainers.utility.DockerImageName
 import reactor.core.publisher.Flux
 

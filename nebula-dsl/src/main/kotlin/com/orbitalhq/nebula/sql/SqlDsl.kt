@@ -7,9 +7,9 @@ import mu.KLogger
 import mu.KotlinLogging
 import org.jooq.SQLDialect
 import org.testcontainers.containers.JdbcDatabaseContainer
-import org.testcontainers.containers.MySQLContainer
 import org.testcontainers.containers.OracleContainer
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.mysql.MySQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 
 private val logger: KLogger = KotlinLogging.logger {}

@@ -33,7 +33,10 @@ reported, depending on where the *consumer* sits relative to the containers:
 | `network` | container's alias  | internal container port | The consumer is another container on the same docker network — e.g. Orbital in a docker-compose deployment. |
 
 In `network` mode consumers talk to the containers directly over the shared docker network,
-so no host port-mapping is involved. Nebula attaches the containers it starts to its **own**
+so no host port-mapping is involved. For Kafka, the in-network listener is served on port
+`19092` (ports 9092–9094 are used by the container's own listeners); the reported
+`bootstrapServers` and `port` always carry the correct value, so consumers reading Nebula's
+emitted coordinates need no changes. Nebula attaches the containers it starts to its **own**
 network — it inspects the container it is running in to find which network(s) it is on.
 
 A container can be attached to more than one network, so when there are several, `--network`

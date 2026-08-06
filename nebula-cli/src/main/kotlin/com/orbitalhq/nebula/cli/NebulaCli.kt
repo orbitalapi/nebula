@@ -11,8 +11,6 @@ import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
 import com.orbitalhq.nebula.runtime.server.NebulaServer
 import com.orbitalhq.nebula.utils.Names
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.junit.runner.Description
-import org.junit.runners.model.Statement
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.Network
 import picocli.CommandLine
@@ -349,10 +347,6 @@ fun selectAttachedNetwork(attachedNetworks: Set<String>, identifier: String): Re
 
 class ExistingDockerNetwork(private val id: String) : Network {
     override fun close() {
-    }
-
-    override fun apply(base: Statement?, description: Description?): Statement? {
-        return null
     }
 
     override fun getId(): String {
