@@ -1,0 +1,32 @@
+name: Warm Maven cache
+
+# GitHub evicts any Actions cache that hasn't been accessed for 7 days.
+# This repo often goes quiet for weeks at a time, so builds routinely start
+# with a cold cache and re-download every artifact from Maven Central.
+# This job touches the cache twice a week (and rebuilds it when poms change),
+# keeping it inside the eviction window so real builds restore it instead.
+#
+# Note: GitHub auto-disables scheduled workflows after 60 days without repo
+# activity - re-enable it from the Actions tab if the repo has been dormant.
+
+on:
+  schedule:
+    - cron: '17 5 * * 1,4' # Mon + Thu, comfortably inside the 7-day window
+  workflow_dispatch:
+
+jobs:
+  warm-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      - name: Resolve dependencies
+        run: mvn -B -ntp -Dmaven.artifact.threads=16 dependency:go-offline --settings .mvn/settings.xml
+        env:
+          JOOQ_REPO_USERNAME: ${{ secrets.JOOQ_REPO_USERNAME }}
+          JOOQ_REPO_PASSWORD: ${{ secrets.JOOQ_REPO_PASSWORD }}
