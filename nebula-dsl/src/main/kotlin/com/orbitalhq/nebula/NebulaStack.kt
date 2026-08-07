@@ -9,6 +9,7 @@ import com.orbitalhq.nebula.kafka.KafkaDsl
 import com.orbitalhq.nebula.logging.LogMessage
 import com.orbitalhq.nebula.logging.StackLogStream
 import com.orbitalhq.nebula.mongo.MongoDsl
+import com.orbitalhq.nebula.redis.RedisDsl
 import com.orbitalhq.nebula.s3.S3Dsl
 import com.orbitalhq.nebula.sql.SqlDsl
 import com.orbitalhq.nebula.taxi.TaxiPublisherDsl
@@ -33,7 +34,7 @@ data class NebulaStackWithSource(
 class NebulaStack(
     val name: StackName = NameGenerator.generateName(),
     initialComponents: List<InfrastructureComponent<*>> = emptyList()
-) : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl, HazelcastDsl, MongoDsl, TaxiPublisherDsl {
+) : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl, HazelcastDsl, RedisDsl, MongoDsl, TaxiPublisherDsl {
     private val _components = mutableListOf<InfrastructureComponent<*>>()
 
     private val isStarted = AtomicBoolean(false)
