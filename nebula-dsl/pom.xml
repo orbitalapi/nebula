@@ -182,7 +182,7 @@
         <dependency>
             <groupId>org.jooq.pro</groupId>
             <artifactId>jooq</artifactId>
-            <version>3.19.10</version>
+            <version>3.19.14</version>
         </dependency>
 
         <dependency>
