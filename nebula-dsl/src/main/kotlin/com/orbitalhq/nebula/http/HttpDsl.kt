@@ -52,6 +52,9 @@ class HttpApiBuilder(private val port: Int = 0, private val componentName: Compo
     fun post(path: String, handler: suspend PipelineContext<Unit, ApplicationCall>.(ApplicationCall) -> Unit) {
         addRoute(HttpMethod.Post, path, handler)
     }
+    fun patch(path: String, handler: suspend PipelineContext<Unit, ApplicationCall>.(ApplicationCall) -> Unit) {
+        addRoute(HttpMethod.Patch, path, handler)
+    }
 
     fun put(path: String, handler: suspend PipelineContext<Unit, ApplicationCall>.(ApplicationCall) -> Unit) {
         addRoute(HttpMethod.Put, path, handler)

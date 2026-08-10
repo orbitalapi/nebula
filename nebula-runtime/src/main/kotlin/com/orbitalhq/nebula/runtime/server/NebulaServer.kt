@@ -9,6 +9,7 @@ import com.orbitalhq.nebula.NebulaStack
 import com.orbitalhq.nebula.NebulaStackWithSource
 import com.orbitalhq.nebula.StackName
 import com.orbitalhq.nebula.StackRunner
+import com.orbitalhq.nebula.core.StackStateEvent
 import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
@@ -145,7 +146,7 @@ class NebulaServer(
                                 val failure = FailedSubmission(
                                     id,
                                     script,
-                                    exception.errors.map { it.toCompilationErrorDto() }
+                                    exception.errors.map { it.toCompilationError() }
                                 )
                                 failedSubmissions[id] = failure
                                 call.respond(HttpStatusCode.UnprocessableEntity, failure)
@@ -239,22 +240,54 @@ class NebulaServer(
                         val payloadJson = frame.readText()
 
                         logger.info { "Received updated stack submission: \n$payloadJson" }
-                        val updateStacksRequest =
-                            objectMapper.readValue<UpdateStackRSocketRequest>(payloadJson)
+                        // Any failure handling a submission must not tear down the socket —
+                        // the client would see nothing but a dropped connection.
+                        try {
+                            val updateStacksRequest =
+                                objectMapper.readValue<UpdateStackRSocketRequest>(payloadJson)
 
-                        val stackMap = compile(updateStacksRequest, call.hostConfig())
-                        val eventStreams = stackMap.map { (name, stack) ->
-                            stackExecutor.submit(stack, name, startAsync = true)
-                        }
-                        Flux.merge(eventStreams)
-                            .subscribe { event ->
-                                logger.info { "Emitting stack status event for stack ${event.stackName}" }
-                                runBlocking {
-                                    val stackStatusJson = objectMapper.writeValueAsString(event)
-                                    send(Frame.Text(stackStatusJson))
-                                }
-
+                            // Compile each stack independently: a broken script must not block
+                            // the other stacks in the submission. Failures are reported back to
+                            // the client as a StackStateEvent carrying the compilation errors,
+                            // and recorded so the admin snapshot shows them too.
+                            val eventStreams = updateStacksRequest.stacks.mapNotNull { (name, script) ->
+                                scriptExecutor.compileToStackWithSource(script, call.hostConfig()).fold(
+                                    { compilationException ->
+                                        val errors = compilationException.errors.map { it.toCompilationError() }
+                                        logger.warn { "Stack $name failed to compile: ${errors.joinToString { it.message }}" }
+                                        failedSubmissions[name] = FailedSubmission(name, script, errors)
+                                        send(
+                                            Frame.Text(
+                                                objectMapper.writeValueAsString(
+                                                    StackStateEvent(
+                                                        stackName = name,
+                                                        stateCounts = emptyMap(),
+                                                        stackState = emptyMap(),
+                                                        compilationErrors = errors
+                                                    )
+                                                )
+                                            )
+                                        )
+                                        null
+                                    },
+                                    { stackWithSource ->
+                                        failedSubmissions.remove(name)
+                                        stackExecutor.submit(stackWithSource.withName(name), name, startAsync = true)
+                                    }
+                                )
                             }
+                            Flux.merge(eventStreams)
+                                .subscribe { event ->
+                                    logger.info { "Emitting stack status event for stack ${event.stackName}" }
+                                    runBlocking {
+                                        val stackStatusJson = objectMapper.writeValueAsString(event)
+                                        send(Frame.Text(stackStatusJson))
+                                    }
+
+                                }
+                        } catch (e: Exception) {
+                            logger.error(e) { "Failed to process stack submission" }
+                        }
                     }
                 }
                 // Serve the management UI (bundled into the jar under resources/web).
@@ -299,12 +332,6 @@ class NebulaServer(
             call.respond(HttpStatusCode.NotFound, "Stack $id not found")
         } else {
             call.respond(snapshot)
-        }
-    }
-
-    private fun compile(updateStacksRequest: UpdateStackRSocketRequest, hostConfig: HostConfig): Map<StackName, NebulaStackWithSource> {
-        return updateStacksRequest.stacks.mapValues { (key, stackScript) ->
-            scriptExecutor.toStackWithSource(stackScript, hostConfig).withName(key)
         }
     }
 

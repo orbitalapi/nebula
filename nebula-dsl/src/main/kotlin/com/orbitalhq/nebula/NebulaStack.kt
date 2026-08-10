@@ -13,6 +13,7 @@ import com.orbitalhq.nebula.s3.S3Dsl
 import com.orbitalhq.nebula.sql.SqlDsl
 import com.orbitalhq.nebula.taxi.TaxiPublisherDsl
 import com.orbitalhq.nebula.utils.NameGenerator
+import io.github.oshai.kotlinlogging.KotlinLogging
 import reactor.core.publisher.Flux
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -34,6 +35,10 @@ class NebulaStack(
     val name: StackName = NameGenerator.generateName(),
     initialComponents: List<InfrastructureComponent<*>> = emptyList()
 ) : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl, HazelcastDsl, MongoDsl, TaxiPublisherDsl {
+    companion object {
+        private val logger = KotlinLogging.logger {}
+    }
+
     private val _components = mutableListOf<InfrastructureComponent<*>>()
 
     private val isStarted = AtomicBoolean(false)
@@ -68,9 +73,17 @@ class NebulaStack(
         markStarted()
         stackStateEventSource.listenForEvents(name, components)
         logStream.attachLogStreams(components)
-        return components.associate { component ->
-            component.type to component.start(config, hostConfig)
-        }
+        return components.mapNotNull { component ->
+            try {
+                component.type to component.start(config, hostConfig)
+            } catch (e: Exception) {
+                // The component's own event source is responsible for emitting Failed
+                // (which is what reaches clients); here we just stop the exception from
+                // killing the stack's start thread, and let the remaining components start.
+                logger.error(e) { "Component ${component.name} in stack $name failed to start" }
+                null
+            }
+        }.toMap()
     }
 
     fun markStarted() {

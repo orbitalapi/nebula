@@ -35,11 +35,11 @@ interface SqlDsl : InfraDsl {
 class DatabaseBuilder(private val container: JdbcDatabaseContainer<*>, private val dialect: SQLDialect, private val type: String, private val databaseName: String, private val componentName: ComponentName) {
     private val tables = mutableListOf<TableConfig>()
 
-    fun table(name: String, ddl: String, data: List<Map<String, Any>> = emptyList()) {
+    fun table(name: String, ddl: String, data: List<Map<String, Any?>> = emptyList()) {
         tables.add(TableConfig(name, ddl, data))
     }
 
-    fun table(name: String, ddl: String, vararg data: Map<String, Any>) {
+    fun table(name: String, ddl: String, vararg data: Map<String, Any?>) {
         table(name, ddl, data.toList())
     }
 
@@ -60,4 +60,4 @@ data class DatabaseConfig(
     val componentName: String
 )
 
-data class TableConfig(val name: String, val ddl: String, val data: List<Map<String, Any>>)
+data class TableConfig(val name: String, val ddl: String, val data: List<Map<String, Any?>>)
