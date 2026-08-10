@@ -1,16 +1,9 @@
 package com.orbitalhq.nebula.runtime.server
 
 import com.orbitalhq.nebula.StackName
+import com.orbitalhq.nebula.core.CompilationError
 import com.orbitalhq.nebula.core.StackStateEvent
 import kotlin.script.experimental.api.ScriptDiagnostic
-
-/** A single compilation diagnostic, flattened for the admin API. */
-data class CompilationErrorDto(
-    val message: String,
-    val line: Int?,
-    val column: Int?,
-    val severity: String
-)
 
 /**
  * A stack that was submitted but failed to compile. Held in memory until a
@@ -19,7 +12,7 @@ data class CompilationErrorDto(
 data class FailedSubmission(
     val name: StackName,
     val source: String,
-    val compilationErrors: List<CompilationErrorDto>
+    val compilationErrors: List<CompilationError>
 )
 
 /**
@@ -32,12 +25,12 @@ data class AdminStackView(
     val name: StackName,
     val stackState: StackStateEvent?,
     val source: String,
-    val compilationErrors: List<CompilationErrorDto>
+    val compilationErrors: List<CompilationError>
 ) {
     val failedCompilation: Boolean get() = compilationErrors.isNotEmpty()
 }
 
-fun ScriptDiagnostic.toCompilationErrorDto(): CompilationErrorDto = CompilationErrorDto(
+fun ScriptDiagnostic.toCompilationError(): CompilationError = CompilationError(
     message = message,
     line = location?.start?.line,
     column = location?.start?.col,

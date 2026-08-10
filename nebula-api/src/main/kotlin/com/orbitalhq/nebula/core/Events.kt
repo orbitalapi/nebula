@@ -46,10 +46,28 @@ data class ContainerInfo(
 )
 
 
+/**
+ * A single diagnostic produced when compiling a submitted stack script.
+ * Carried on [StackStateEvent] so consumers (e.g. Orbital) can surface
+ * why a submission was rejected, and reused by the admin API.
+ */
+data class CompilationError(
+    val message: String,
+    val line: Int?,
+    val column: Int?,
+    val severity: String
+)
+
+/**
+ * State of a single stack. When a submission fails to compile, the event names
+ * the rejected stack and carries the [compilationErrors]; [stackState] is empty
+ * in that case (any previously-running version of the stack is left untouched).
+ */
 data class StackStateEvent(
     val stackName: String,
     val stateCounts: Map<ComponentState, Int>,
-    val stackState: NebulaStackState
+    val stackState: NebulaStackState,
+    val compilationErrors: List<CompilationError> = emptyList()
 )
 
 
