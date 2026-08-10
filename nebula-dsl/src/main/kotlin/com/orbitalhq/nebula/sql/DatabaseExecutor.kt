@@ -7,6 +7,7 @@ import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.containerInfoFrom
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.ComponentLifecycleEvent
+import com.orbitalhq.nebula.core.ComponentState
 import com.orbitalhq.nebula.endpointFor
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
@@ -55,11 +56,20 @@ class DatabaseExecutor(private val config: DatabaseConfig, loggers: List<LoggerN
         databaseContainer = config.container.withDatabaseName(config.databaseName)
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
-        eventSource.startContainerAndEmitEvents(databaseContainer, name)
+        // Table DDL and seed data run inside the guarded init step: a failure there
+        // (e.g. invalid DDL) emits Failed with the database's error message, rather
+        // than throwing out of the stack's start thread with nothing reported back.
+        eventSource.startContainerAndEmitEvents(databaseContainer, name) {
+            setupDataSource()
+            setupJooq()
+            createTablesAndLoadData()
+        }
 
-        setupDataSource()
-        setupJooq()
-        createTablesAndLoadData()
+        if (!databaseContainer.isRunning) {
+            // The container itself never came up (Failed has already been emitted) —
+            // its ports and jdbcUrl are unreadable, so there's no ComponentInfo to build.
+            error("Database container for component $name failed to start")
+        }
 
         // The internal port the DB listens on inside the container (5432, 3306, ...).
         val internalPort = databaseContainer.exposedPorts.first()
@@ -86,7 +96,11 @@ class DatabaseExecutor(private val config: DatabaseConfig, loggers: List<LoggerN
             id = id
 
         )
-        eventSource.running()
+        // Re-emit Running now that componentInfo is populated — unless the init step
+        // failed, where re-emitting would clobber the Failed state and its message.
+        if (currentState.state != ComponentState.Failed) {
+            eventSource.running()
+        }
         return componentInfo!!
     }
 

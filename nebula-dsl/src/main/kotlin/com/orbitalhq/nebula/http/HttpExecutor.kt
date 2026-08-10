@@ -70,6 +70,7 @@ class HttpExecutor(private val config: HttpConfig, loggerNames: List<LoggerName>
                         HttpMethod.Post -> post(route.path) {  route.handler(this, call)  }
                         HttpMethod.Put -> put(route.path) {  route.handler(this, call)  }
                         HttpMethod.Delete -> delete(route.path) {  route.handler(this, call) }
+                        HttpMethod.Patch -> patch(route.path) {  route.handler(this, call) }
                         else -> throw IllegalArgumentException("Unsupported HTTP method: ${route.method}")
                     }
                 }
