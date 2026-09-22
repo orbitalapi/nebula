@@ -46,6 +46,7 @@ export function getComponentIcon(type: string, className = 'size-5') {
     case 'hazelcast':
     case 'redis':
     case 's3':
+    case 'apigateway':
     case 'localstack':
     case 'cache':
       return <Server className={className} />;

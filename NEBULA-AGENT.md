@@ -362,7 +362,36 @@ fun file(path: String)                           // read file from disk; uses th
 
 Use the `Sequence<String>` form for files larger than a few MB (the seeder uses S3 multipart upload — minimum part size is 5 MB, which is already handled by default).
 
-### 5.6 `hazelcast { ... }` — Hazelcast
+### 5.6 `apiGateway { ... }` — AWS API Gateway (LocalStack-backed)
+
+Imports OpenAPI 3 documents as REST APIs and deploys each to a stage. Orbital treats the gateway as a **schema registry**: it browses the deployed stages and pulls their OpenAPI exports into a project.
+
+```kotlin
+apiGateway {
+   restApi("pets", stage = "v1", openApi = petsOpenApi)          // inline document (JSON or YAML)
+   restApiFromFile("orders", path = "specs/orders.yaml")         // shipped with the stack (see §8); stage defaults to "prod"
+}
+```
+
+Signature:
+```kotlin
+fun apiGateway(imageName: String = "localstack/localstack:3.0.2",
+               componentName: String = "apiGateway",
+               dsl: ApiGatewayBuilder.(KLogger) -> Unit)
+
+fun restApi(name: String, openApi: String, stage: String = "prod")
+fun restApiFromFile(name: String, path: String, stage: String = "prod")
+```
+
+Rules:
+- `name` must start with a letter and contain only letters, digits, dashes and underscores. It keys the emitted config: `petsApiId`, `petsStage`, `petsInvokeUrl` (dashes are camel-cased: `pet-store` -> `petStoreApiId`).
+- Every operation in the spec MUST declare a response schema — Orbital's OpenAPI import needs one to build a return type.
+- To make the deployed API answer requests, put `x-amazon-apigateway-integration` blocks in the spec, as on AWS. Without them the API exists for schema export only.
+- REST APIs only. The community LocalStack image has no HTTP API (API Gateway v2) support.
+
+Emitted config (also `accessKey`, `secretKey`, `region`, `endpointOverride`) reaches Orbital as env variables such as `NEBULA_API_GATEWAY_ENDPOINT_OVERRIDE` and `NEBULA_API_GATEWAY_PETS_API_ID`, for use in `connections.conf` (an `aws` connection) and `registries.conf` (an `awsApiGateway` registry selecting `apiId: ${NEBULA_API_GATEWAY_PETS_API_ID}`).
+
+### 5.7 `hazelcast { ... }` — Hazelcast
 
 Almost always empty-configured. Orbital connects and uses it as a cache.
 
@@ -377,7 +406,7 @@ fun hazelcast(imageName: String = "hazelcast/hazelcast:5",
               dsl: HazelcastBuilder.(KLogger) -> Unit)
 ```
 
-### 5.7 `taxiPublisher(...) { ... }` — publish taxi/proto/avro schemas to a running Orbital
+### 5.8 `taxiPublisher(...) { ... }` — publish taxi/proto/avro schemas to a running Orbital
 
 Registers schema sources against a running Orbital instance on startup. Use this when the stack needs to push protobuf/avro/taxi sources into Orbital alongside the runtime infra (e.g. so Orbital can decode messages).
 

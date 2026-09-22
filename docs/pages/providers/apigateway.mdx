@@ -1,0 +1,92 @@
+## AWS API Gateway
+
+The `apiGateway` block starts an AWS API Gateway on `localstack/localstack`, imports OpenAPI specs
+into it as REST APIs, and deploys each to a stage.
+
+Orbital treats API Gateway as a schema registry: it browses the deployed stages and pulls their
+OpenAPI exports into a project. Use this block to give a stack an API for Orbital to pull.
+
+### Declaring an API
+
+```kotlin
+stack {
+    apiGateway {
+        // Imports the OpenAPI document as a REST API and deploys it to the "v1" stage
+        restApi("pets", stage = "v1", openApi = """
+            {
+              "openapi": "3.0.1",
+              "info": { "title": "Pets", "version": "1.0" },
+              "paths": {
+                "/pets": {
+                  "get": {
+                    "responses": {
+                      "200": {
+                        "description": "The pets",
+                        "content": { "application/json": { "schema": { "${'$'}ref": "#/components/schemas/Pet" } } }
+                      }
+                    }
+                  }
+                }
+              },
+              "components": { "schemas": { "Pet": { "type": "object", "properties": { "name": { "type": "string" } } } } }
+            }
+        """)
+
+        // Or read a document shipped alongside the stack (see "Shipping files with a stack").
+        // An absolute path is read from the machine running Nebula instead.
+        restApiFromFile("orders", path = "specs/orders.yaml", stage = "prod")
+    }
+}
+```
+
+Every operation should declare a response schema, as Orbital's OpenAPI import needs one to
+generate a return type. To make the deployed API answer requests, declare integrations in the
+spec with `x-amazon-apigateway-integration`, the same way you would on AWS.
+
+Only REST APIs are supported: the community LocalStack image does not include HTTP APIs (API Gateway v2).
+
+### Returned values
+
+| Key                  | Description                                                                          |
+|----------------------|--------------------------------------------------------------------------------------|
+| `accessKey`          | The access key of the running AWS stack                                              |
+| `secretKey`          | The secret key of the running AWS stack                                              |
+| `region`             | The region of the running AWS stack                                                  |
+| `endpointOverride`   | The endpoint override of the running AWS stack                                       |
+| `<name>ApiId`        | The id of the REST API declared as `<name>`, eg `petsApiId`                          |
+| `<name>Stage`        | The stage the API was deployed to                                                    |
+| `<name>InvokeUrl`    | The base URL of the deployed stage, eg `http://localhost:4566/restapis/abc123/v1/_user_request_` |
+
+Names with dashes are camel-cased: `restApi("pet-store", ...)` emits `petStoreApiId`.
+
+### Using it as a registry in Orbital
+
+Reference the emitted values from the project's `connections.conf` and `registries.conf`:
+
+```hocon
+// orbital/config/connections.conf
+aws {
+   aws-local {
+      connectionName: aws-local
+      accessKey: ${NEBULA_API_GATEWAY_ACCESS_KEY}
+      secretKey: ${NEBULA_API_GATEWAY_SECRET_KEY}
+      region: ${NEBULA_API_GATEWAY_REGION}
+      endPointOverride: ${NEBULA_API_GATEWAY_ENDPOINT_OVERRIDE}
+   }
+}
+```
+
+```hocon
+// orbital/config/registries.conf
+registries {
+   awsApiGateway {
+      local-gateway {
+         awsConnection: aws-local
+         pollFrequency: PT1M
+         apis: [
+            { apiId: ${NEBULA_API_GATEWAY_PETS_API_ID}, apiType: REST, stage: v1, namespace: com.acme.pets }
+         ]
+      }
+   }
+}
+```
