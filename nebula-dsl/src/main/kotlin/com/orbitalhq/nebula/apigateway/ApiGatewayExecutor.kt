@@ -62,6 +62,9 @@ class ApiGatewayExecutor(private val config: ApiGatewayConfig, loggers: List<Log
             .withServices("apigateway", "sts")
             .withNetwork(nebulaConfig.network)
             .withNetworkAliases(config.componentName)
+            // Lets x-amazon-apigateway-integration proxies reach services running where Nebula runs,
+            // such as an http { } stub, via http://host.docker.internal:<port>
+            .withExtraHost("host.docker.internal", "host-gateway")
 
         eventSource.startContainerAndEmitEvents(localstack, name)
 
