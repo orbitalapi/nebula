@@ -1,5 +1,6 @@
 package com.orbitalhq.nebula.runtime.server
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
@@ -9,6 +10,7 @@ import com.orbitalhq.nebula.NebulaStack
 import com.orbitalhq.nebula.NebulaStackWithSource
 import com.orbitalhq.nebula.StackName
 import com.orbitalhq.nebula.StackRunner
+import com.orbitalhq.nebula.core.StackBundle
 import com.orbitalhq.nebula.core.StackStateEvent
 import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -95,6 +97,30 @@ class NebulaServer(
                         val stack = scriptExecutor.toStackWithSource(script, call.hostConfig())
                         stackExecutor.submit(stack, startAsync = true)
                         call.respond(stack.name)
+                    }
+                    // Submit a stack together with the files it reads at startup.
+                    // Additive: the script-only routes above are untouched, and a
+                    // bundle carrying no resources behaves identically to them.
+                    post("/bundle") {
+                        val bundle = call.receive<StackBundle>()
+                        // The name is assigned by the runner, but the unpacker wants
+                        // something to name the directory after before we have one.
+                        submitBundle(call, "unnamed-stack", bundle) { stack ->
+                            stackExecutor.submit(stack, startAsync = true)
+                            call.respond(stack.name)
+                        }
+                    }
+                    put("/bundle/{id}") {
+                        val id = call.parameters["id"] ?: return@put call.respond(
+                            HttpStatusCode.BadRequest,
+                            "Missing or malformed id"
+                        )
+                        val bundle = call.receive<StackBundle>()
+                        submitBundle(call, id, bundle) { stack ->
+                            val named = stack.withName(id)
+                            stackExecutor.submit(named, id)
+                            call.respond(named.name)
+                        }
                     }
                     put("/{id}") {
                         val id = call.parameters["id"] ?: return@put call.respond(
@@ -250,12 +276,12 @@ class NebulaServer(
                             // the other stacks in the submission. Failures are reported back to
                             // the client as a StackStateEvent carrying the compilation errors,
                             // and recorded so the admin snapshot shows them too.
-                            val eventStreams = updateStacksRequest.stacks.mapNotNull { (name, script) ->
-                                scriptExecutor.compileToStackWithSource(script, call.hostConfig()).fold(
+                            val eventStreams = updateStacksRequest.allBundles().mapNotNull { (name, bundle) ->
+                                scriptExecutor.compileBundle(name, bundle, call.hostConfig()).fold(
                                     { compilationException ->
                                         val errors = compilationException.errors.map { it.toCompilationError() }
                                         logger.warn { "Stack $name failed to compile: ${errors.joinToString { it.message }}" }
-                                        failedSubmissions[name] = FailedSubmission(name, script, errors)
+                                        failedSubmissions[name] = FailedSubmission(name, bundle.script, errors)
                                         send(
                                             Frame.Text(
                                                 objectMapper.writeValueAsString(
@@ -300,6 +326,37 @@ class NebulaServer(
         }.start(wait = wait)
     }
 
+    /**
+     * Compiles a submitted bundle and hands the compiled stack to [onCompiled],
+     * or answers 422 with the compilation errors.
+     *
+     * Bundle problems (a resource that escapes the bundle directory, a file over
+     * the size limit) arrive here as compilation errors, so the caller gets the
+     * same shaped response whether the script or its resources were the problem.
+     */
+    private suspend fun submitBundle(
+        call: ApplicationCall,
+        stackName: StackName,
+        bundle: StackBundle,
+        onCompiled: suspend (NebulaStackWithSource) -> Unit
+    ) {
+        scriptExecutor.compileBundle(stackName, bundle, call.hostConfig()).fold(
+            { exception ->
+                val failure = FailedSubmission(
+                    stackName,
+                    bundle.script,
+                    exception.errors.map { it.toCompilationError() }
+                )
+                failedSubmissions[stackName] = failure
+                call.respond(HttpStatusCode.UnprocessableEntity, failure)
+            },
+            { stack ->
+                failedSubmissions.remove(stackName)
+                onCompiled(stack)
+            }
+        )
+    }
+
     private suspend fun handleStackAction(
         call: ApplicationCall,
         action: (id: String) -> Unit
@@ -341,7 +398,33 @@ data class StackEventStreamRequest(val stackId: StackName)
 
 typealias StackScript = String
 
-data class UpdateStackRSocketRequest(val stacks: Map<StackName, StackScript>)
+/**
+ * A submission of one or more stacks over `/stream/stacks`.
+ *
+ * Accepts both shapes:
+ *
+ *  - `{"stacks": {"name": "<script>"}}` - the original, script-only message.
+ *    Still what Orbital sends when a project ships no resource files.
+ *  - `{"bundles": {"name": {"script": "...", "resources": {...}}}}` - a stack
+ *    plus the files that travel with it.
+ *
+ * Both fields default to empty, so an old client's message deserialises without
+ * a `bundles` field and a new client's without a `stacks` field. Orbital only
+ * sends `bundles` when a project actually has resources, which is what lets a
+ * new Orbital keep talking to a Nebula server that predates this message.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class UpdateStackRSocketRequest(
+    val stacks: Map<StackName, StackScript> = emptyMap(),
+    val bundles: Map<StackName, StackBundle> = emptyMap()
+) {
+    /**
+     * The submission normalised to bundles. A script-only entry is a bundle with
+     * no resources, so the server has a single code path for both.
+     */
+    fun allBundles(): Map<StackName, StackBundle> =
+        stacks.mapValues { (_, script) -> StackBundle.scriptOnly(script) } + bundles
+}
 
 fun ApplicationCall.hostConfig():HostConfig {
     return HostConfig(listOf(this.request.host()))

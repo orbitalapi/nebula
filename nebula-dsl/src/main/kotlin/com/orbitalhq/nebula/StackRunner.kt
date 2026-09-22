@@ -61,12 +61,22 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
     fun submit(submittedStack: NebulaStackWithSource, name: StackName = submittedStack.name, startAsync: Boolean = false): Flux<StackStateEvent> {
         val storedStack = this.stacks.compute(name) { key, existingSpec ->
             if (existingSpec != null) {
-                if (existingSpec.source == submittedStack.source) {
+                // Compared on the submission key, not the script alone: a stack whose
+                // script is unchanged but whose bundled resources have been edited is
+                // a genuinely different submission and must be restarted.
+                if (existingSpec.submissionKey == submittedStack.submissionKey) {
                     logger.info { "Received duplicate submission for spec $key - reusing existing stack" }
+                    // The incoming bundle was unpacked before we got here, and is now
+                    // redundant - drop it rather than leaving it in the temp directory.
+                    if (submittedStack !== existingSpec) {
+                        submittedStack.resources.delete()
+                    }
                     return@compute existingSpec
                 } else {
                     logger.info { "Replacing spec $key" }
                     shutDown(name)
+                    // The replaced stack is gone for good, so its unpacked bundle goes too.
+                    existingSpec.resources.delete()
                 }
             }
             submittedStack
@@ -208,7 +218,9 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
         if (this.stacks.containsKey(name)) {
             shutDown(name)
         }
-        this.stacks.remove(name)
+        // Removal (unlike shutDown, which leaves a stopped stack restartable) means
+        // the stack is never coming back, so its unpacked bundle is deleted with it.
+        this.stacks.remove(name)?.resources?.delete()
         this._stackState.remove(name)
     }
 

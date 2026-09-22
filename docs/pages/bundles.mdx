@@ -1,0 +1,152 @@
+---
+title: Shipping files with a stack
+---
+
+## Shipping files with a stack
+
+A stack script often needs a file: an OpenAPI spec to import into API Gateway, a
+CSV to seed an S3 bucket, a fixture to serve from an HTTP endpoint.
+
+Those files live in the project that defines the stack — on a developer's laptop,
+or in a git repo that Orbital has checked out. The Nebula server is somewhere
+else entirely, usually a different container. A path in a script like
+`file("/home/jane/project/sales.csv")` means *the Nebula server's* filesystem,
+which is not where the file is.
+
+A **stack bundle** fixes that. It is the script plus the files it reads,
+submitted together. Nebula unpacks the files into a directory belonging to that
+submission, and the stack reads them from there.
+
+### Submitting a bundle
+
+`POST /stacks/bundle` creates a stack; `PUT /stacks/bundle/{id}` replaces one.
+Both take JSON:
+
+```json
+{
+  "script": "stack {\n   s3 { bucket(\"tickets\") { file(\"data/sales.csv\") } }\n}",
+  "resources": {
+    "data/sales.csv": { "content": "Title,Tickets\nA New Hope,249\n" },
+    "specs/orders.yaml": { "content": "openapi: 3.0.0\n..." }
+  }
+}
+```
+
+```bash
+curl --location 'http://localhost:8099/stacks/bundle' \
+  --header 'Content-Type: application/json' \
+  --data @bundle.json
+```
+
+The script-only routes (`POST /stacks`, `PUT /stacks/{id}`) are unchanged, and a
+bundle with no `resources` behaves exactly as they do.
+
+Orbital submits bundles over the `/stream/stacks` websocket rather than over
+HTTP. That message accepts both shapes:
+
+```json
+{ "stacks":  { "films": "stack {}" } }
+{ "bundles": { "films": { "script": "stack {}", "resources": { ... } } } }
+```
+
+### Resource encoding
+
+Each resource is `{ "content": "...", "encoding": "TEXT" | "BASE64" }`.
+`encoding` defaults to `TEXT`, where the content is the file's text and is
+written out as UTF-8. Binary files (a `.parquet`, an image) are sent as `BASE64`.
+
+Orbital only ever sends `TEXT`: the files reach it through the schema pipeline,
+which carries a project's additional sources as text. Submit `BASE64` directly if
+you need binary content.
+
+### Limits
+
+| Limit | Value |
+|---|---|
+| Largest single file | 10 MB |
+| Largest bundle | 50 MB |
+| Files per bundle | 500 |
+
+Exceeding any of these fails the submission with a message naming the file and
+the limit. Bundles are for fixtures and specs — if you need gigabytes of seed
+data, mount a volume into the Nebula container instead.
+
+### Reading resources from a script
+
+Inside `stack { }`, `resources` gives you the files that were shipped:
+
+```kotlin
+stack {
+   val sales = resources.readText("data/sales.csv")
+   val spec = resources.readText("specs/orders.yaml")
+
+   http {
+      get("/sales") { call -> call.respondText(sales) }
+   }
+}
+```
+
+| Function | Returns |
+|---|---|
+| `resources.readText(path)` | the file's text, as UTF-8 |
+| `resources.readBytes(path)` | the file's bytes |
+| `resources.path(path)` | a `java.nio.file.Path` to the unpacked file |
+| `resources.exists(path)` | whether the stack shipped that file |
+| `resources.names` | every file the stack shipped, as relative paths |
+| `resources.hasBundle` | whether this stack was submitted with a bundle |
+
+Paths are relative to the bundle root, which is the project's nebula directory —
+so `data/sales.csv` in the script means `orbital/nebula/data/sales.csv` in the
+project.
+
+### Providers that read files
+
+Any provider that reads a file resolves a **relative** path through the bundle:
+
+```kotlin
+stack {
+   s3 {
+      bucket("tickets") {
+         file("data/sales.csv")        // read from the bundle
+         file("/mnt/shared/big.csv")   // read from the Nebula server, as before
+      }
+   }
+}
+```
+
+An **absolute** path keeps its existing meaning — a file on the machine running
+Nebula. Stacks written before bundles existed, and stacks run from the CLI
+against local files, are unaffected.
+
+Resolution happens while the script is compiled, so a typo in a resource name
+fails the submission with a message listing what the stack actually shipped,
+rather than failing later, mid-startup.
+
+### What a stack may read
+
+Every resource lookup is confined to the bundle directory:
+
+- absolute paths are rejected,
+- `..` segments are rejected,
+- the resolved path is turned into a real path — following symlinks — and
+  re-checked to still be inside the bundle.
+
+So a bundle entry named `../../etc/cron.d/evil` is rejected before anything is
+written, and a symlink planted inside a bundle that points at
+`/etc/ssh/id_rsa` is refused when the stack tries to read it.
+
+This confines *resource* access. A Nebula script is arbitrary Kotlin and can
+always open a file directly; the guarantee is that a bundle-relative path
+resolves to a file inside the bundle, nothing more and nothing less. Only submit
+stacks you trust to a Nebula server.
+
+### Lifetime
+
+Each submission gets its own directory under the system temp directory. It is
+deleted when the stack is replaced by a different submission, when the stack is
+removed, and when a submission is rejected. Stopping a stack keeps its bundle,
+because a stopped stack can be started again.
+
+A stack is *replaced* when its script **or** any of its resources change — so
+editing a CSV next to an unchanged script restarts the stack, rather than being
+skipped as a duplicate submission.
