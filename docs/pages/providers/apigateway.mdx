@@ -40,7 +40,13 @@ stack {
 ```
 
 Every operation should declare a response schema, as Orbital's OpenAPI import needs one to
-generate a return type. To make the deployed API answer requests, declare integrations in the
+generate a return type. Declare it as a named schema under `components/schemas` and reference it:
+API Gateway only exports named models, so an inline response schema (a bare array, say) is dropped
+on import.
+
+Each API gets a stable id, the declared name in lower case, so the id is the same on every start of
+the stack and anything that recorded it (an Orbital registry selection, a config file) keeps working
+after a restart. Pass `apiId = "..."` to choose it. To make the deployed API answer requests, declare integrations in the
 spec with `x-amazon-apigateway-integration`, the same way you would on AWS.
 
 Only REST APIs are supported: the community LocalStack image does not include HTTP APIs (API Gateway v2).
@@ -53,7 +59,7 @@ Only REST APIs are supported: the community LocalStack image does not include HT
 | `secretKey`          | The secret key of the running AWS stack                                              |
 | `region`             | The region of the running AWS stack                                                  |
 | `endpointOverride`   | The endpoint override of the running AWS stack                                       |
-| `<name>ApiId`        | The id of the REST API declared as `<name>`, eg `petsApiId`                          |
+| `<name>ApiId`        | The id of the REST API declared as `<name>`, eg `petsApiId`. Stable across restarts: the name in lower case unless `apiId` was given |
 | `<name>Stage`        | The stage the API was deployed to                                                    |
 | `<name>InvokeUrl`    | The base URL of the deployed stage, eg `http://localhost:4566/restapis/abc123/v1/_user_request_` |
 
