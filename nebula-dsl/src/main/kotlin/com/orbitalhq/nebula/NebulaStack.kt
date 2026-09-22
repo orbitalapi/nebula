@@ -1,5 +1,6 @@
 package com.orbitalhq.nebula
 
+import com.orbitalhq.nebula.apigateway.ApiGatewayDsl
 import com.orbitalhq.nebula.core.ComponentInfo
 import com.orbitalhq.nebula.core.StackStateEvent
 import com.orbitalhq.nebula.events.StackStateEventSource
@@ -59,7 +60,7 @@ class NebulaStack(
      * the stack was submitted as a bundle; [StackResources.NONE] otherwise.
      */
     override val resources: StackResources = StackResources.NONE
-) : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl, HazelcastDsl, MongoDsl, TaxiPublisherDsl {
+) : InfraDsl, KafkaDsl, S3Dsl, ApiGatewayDsl, HttpDsl, SqlDsl, HazelcastDsl, MongoDsl, TaxiPublisherDsl {
     companion object {
         private val logger = KotlinLogging.logger {}
     }
