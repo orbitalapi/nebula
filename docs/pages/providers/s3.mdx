@@ -16,6 +16,26 @@ stack {
 }
 ```
 
+### Seeding a bucket from a file
+
+`file(path)` uploads a file from disk, using its filename as the S3 key.
+
+```kotlin
+stack {
+    s3 {
+        bucket("tickets") {
+            file("data/sales.csv")       // shipped with the stack
+            file("/mnt/shared/big.csv")  // on the machine running Nebula
+        }
+    }
+}
+```
+
+A **relative** path is read from the bundle submitted with the stack, so the CSV
+travels with the project rather than having to exist on the Nebula server — see
+[Shipping files with a stack](/bundles). An **absolute** path is read from the
+machine running Nebula, which is what it has always meant.
+
 ### Returned values
 When an `s3` component is declared, the following data is returned:
 

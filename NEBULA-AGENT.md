@@ -30,7 +30,7 @@ version: 0.1.0
 sourceRoot: src/
 additionalSources: {
    "@orbital/config" : "orbital/config/*.conf",
-   "@orbital/nebula" : "orbital/nebula/*.nebula.kts"
+   "@orbital/nebula" : "orbital/nebula/**"
 }
 dependencies: {
    "com.orbitalhq/core" : "github:orbitalapi/orbital-core-taxi#0.34.0"
@@ -40,8 +40,8 @@ dependencies: {
 **Rules:**
 - The `@orbital/nebula` key under `additionalSources` is **mandatory**. Without it Orbital will not discover the stack.
 - By convention the file lives at `orbital/nebula/stack.nebula.kts` (preferred) or `nebula/stack.nebula.kts`.
-- Declare the glob with a wildcard (`*.nebula.kts`), not a single explicit file — future stacks in the same folder will be picked up automatically.
-- If `taxi.conf` already exists and lacks the `@orbital/nebula` entry, add it. Do not remove unrelated `additionalSources` keys.
+- **Declare the glob as `orbital/nebula/**`**, not `orbital/nebula/*.nebula.kts`. The whole directory is the stack's bundle: `*.nebula.kts` files are stacks, and every other file is a resource shipped alongside them (see §8). The narrower `*.nebula.kts` glob still works, but then the stack ships no files.
+- If `taxi.conf` already exists with the older `orbital/nebula/*.nebula.kts` entry, widen it to `orbital/nebula/**` when the stack needs to read a file. Do not remove unrelated `additionalSources` keys.
 
 **Minimal project layout:**
 
@@ -52,7 +52,9 @@ my-project/
 │   └── ... (taxi files)
 └── orbital/
     └── nebula/
-        └── stack.nebula.kts
+        ├── stack.nebula.kts
+        └── data/
+            └── sales.csv        <- shipped with the stack, see §8
 ```
 
 ---
@@ -335,7 +337,8 @@ Empire Strikes Back,LXILO,189
 """)
    }
    bucket("reports") {
-      file("/absolute/path/to/local.csv")          // read from disk
+      file("data/sales.csv")                       // shipped with the stack (see §8)
+      file("/absolute/path/to/local.csv")          // read from the Nebula server's disk
       file("large.csv", generateSequence())        // Sequence<String> for large/streamed files
    }
 }
@@ -352,8 +355,10 @@ Inside a `bucket(name)` block:
 ```kotlin
 fun file(name: String, content: String)         // inline content
 fun file(name: String, content: Sequence<String>) // streaming — for large files
-fun file(path: String)                           // read file from local disk; uses the filename as the S3 key
+fun file(path: String)                           // read file from disk; uses the filename as the S3 key
 ```
+
+`file(path)` resolves a **relative** path against the files shipped with the stack (§8), and an **absolute** path against the Nebula server's own filesystem. Prefer the relative form — the Nebula server is a different machine from the project, so an absolute path almost never points where you think it does.
 
 Use the `Sequence<String>` form for files larger than a few MB (the seeder uses S3 multipart upload — minimum part size is 5 MB, which is already handled by default).
 
@@ -507,10 +512,88 @@ stack {
 
 ---
 
-## 8. Quick checklist before returning a stack
+## 8. Shipping files with a stack
+
+A stack often needs a file: an OpenAPI spec to import, a CSV to seed a bucket, a
+fixture to serve. **Those files go in the project's nebula directory, next to the
+script**, and are submitted to Nebula along with it.
+
+This matters because the Nebula server is a different machine from the project.
+A path like `/home/jane/project/sales.csv` in a script means *Nebula's*
+filesystem, where the file does not exist.
+
+### Layout
+
+Everything under the `@orbital/nebula` directory that is **not** a `.nebula.kts`
+file is a resource. Resources are shared by every stack in that directory.
+
+```
+orbital/nebula/
+├── stack.nebula.kts
+├── data/
+│   └── sales.csv
+└── specs/
+    └── orders.yaml
+```
+
+This requires the wider glob in `taxi.conf` (§2):
+
+```hocon
+"@orbital/nebula" : "orbital/nebula/**"
+```
+
+With the older `orbital/nebula/*.nebula.kts` glob the script is still found, but
+no resources are shipped and `resources` will be empty.
+
+### Reading them
+
+Inside `stack { }`, `resources` gives you the files:
+
+```kotlin
+stack {
+   val sales = resources.readText("data/sales.csv")
+
+   http {
+      get("/sales") { call -> call.respondText(sales) }
+   }
+}
+```
+
+| Function | Returns |
+|---|---|
+| `resources.readText(path)` | the file's text, as UTF-8 |
+| `resources.readBytes(path)` | the file's bytes |
+| `resources.path(path)` | a `java.nio.file.Path` to the file |
+| `resources.exists(path)` | whether the stack shipped that file |
+| `resources.names` | every file the stack shipped |
+| `resources.hasBundle` | whether this stack was submitted with files at all |
+
+Paths are relative to the nebula directory — `data/sales.csv` above, not
+`orbital/nebula/data/sales.csv`.
+
+Providers that read a file (`s3 { file(path) }`, and API Gateway's
+`restApiFromFile(...)`) resolve a **relative** path the same way, so you can pass
+`"data/sales.csv"` straight to them.
+
+**Rules:**
+- Use relative paths. Absolute paths mean the Nebula server's own filesystem, and
+  almost never point where you want.
+- A path may not contain `..`, and may not escape the nebula directory. Both are
+  rejected, so don't try to reach a file elsewhere in the project — copy it into
+  the nebula directory instead.
+- Limits: 10 MB per file, 50 MB per stack, 500 files. For anything larger, mount
+  a volume into the Nebula container.
+- Resources are text by default. Binary files work, but Orbital ships a project's
+  files as text, so prefer text formats (CSV, JSON, YAML) for stacks Orbital
+  submits.
+
+---
+
+## 9. Quick checklist before returning a stack
 
 - [ ] File is named `stack.nebula.kts` (unless user specified otherwise) and placed at `orbital/nebula/stack.nebula.kts`.
-- [ ] `taxi.conf` contains `"@orbital/nebula" : "orbital/nebula/*.nebula.kts"` under `additionalSources`.
+- [ ] `taxi.conf` contains `"@orbital/nebula" : "orbital/nebula/**"` under `additionalSources`.
+- [ ] Any file the stack reads sits under `orbital/nebula/`, and is read with a relative path (`resources.readText("data/sales.csv")`, `file("data/sales.csv")`) — never an absolute one.
 - [ ] Exactly one top-level `stack { }` block.
 - [ ] No re-imports of `stack`, `Random`, `io.ktor.server.request.*`, `io.ktor.server.response.*`.
 - [ ] Duplicate component types (two Postgres, two S3, etc.) each have distinct `componentName`s.

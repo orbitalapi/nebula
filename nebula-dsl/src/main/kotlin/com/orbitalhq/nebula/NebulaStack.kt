@@ -9,6 +9,8 @@ import com.orbitalhq.nebula.kafka.KafkaDsl
 import com.orbitalhq.nebula.logging.LogMessage
 import com.orbitalhq.nebula.logging.StackLogStream
 import com.orbitalhq.nebula.mongo.MongoDsl
+import com.orbitalhq.nebula.resources.StackResources
+import com.orbitalhq.nebula.resources.StackResourcesContext
 import com.orbitalhq.nebula.s3.S3Dsl
 import com.orbitalhq.nebula.sql.SqlDsl
 import com.orbitalhq.nebula.taxi.TaxiPublisherDsl
@@ -29,11 +31,34 @@ data class NebulaStackWithSource(
     }
 
     val name = stack.name
+
+    /**
+     * The files shipped with this submission, unpacked and confined to their own
+     * directory. [StackResources.NONE] for a script-only submission.
+     */
+    val resources: StackResources
+        get() = stack.resources
+
+    /**
+     * Identity of a submission: the script text *plus* the content of the
+     * resources shipped with it.
+     *
+     * [StackRunner] dedupes on this rather than on [source] alone, so editing a
+     * CSV or an OpenAPI spec next to an unchanged script still replaces the
+     * running stack instead of being skipped as a duplicate submission.
+     */
+    val submissionKey: String
+        get() = source + "\u0000" + stack.resources.fingerprint
 }
 
 class NebulaStack(
     val name: StackName = NameGenerator.generateName(),
-    initialComponents: List<InfrastructureComponent<*>> = emptyList()
+    initialComponents: List<InfrastructureComponent<*>> = emptyList(),
+    /**
+     * The files shipped alongside this stack's script. Bound by the executor when
+     * the stack was submitted as a bundle; [StackResources.NONE] otherwise.
+     */
+    override val resources: StackResources = StackResources.NONE
 ) : InfraDsl, KafkaDsl, S3Dsl, HttpDsl, SqlDsl, HazelcastDsl, MongoDsl, TaxiPublisherDsl {
     companion object {
         private val logger = KotlinLogging.logger {}
@@ -53,7 +78,7 @@ class NebulaStack(
     }
 
     fun withName(name: StackName): NebulaStack {
-        return NebulaStack(name, this._components)
+        return NebulaStack(name, this._components, this.resources)
     }
 
     private val logStream = StackLogStream()
@@ -104,6 +129,25 @@ class NebulaStack(
         }
 }
 
+/**
+ * Declares a stack.
+ *
+ * Picks up the resource bundle bound for the current thread by the executor, so
+ * a script submitted as a bundle can read the files that shipped with it (via
+ * `resources`, or by giving a relative path to any provider that reads a file)
+ * without having to declare anything.
+ */
 fun stack(init: NebulaStack.() -> Unit): NebulaStack {
-    return NebulaStack().apply(init)
+    return NebulaStack(resources = StackResourcesContext.current()).apply(init)
+}
+
+/**
+ * Declares a stack with an explicit set of resources.
+ *
+ * Scripts don't use this - they get their bundle from the submission. It exists
+ * for hosts (the CLI, tests) that build a stack in-process and want to point it
+ * at a directory of files.
+ */
+fun stack(resources: StackResources, init: NebulaStack.() -> Unit): NebulaStack {
+    return NebulaStack(resources = resources).apply(init)
 }

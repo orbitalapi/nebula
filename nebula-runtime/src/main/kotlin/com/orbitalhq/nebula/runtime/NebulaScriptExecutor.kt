@@ -8,6 +8,10 @@ import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.NebulaScript
 import com.orbitalhq.nebula.NebulaStack
 import com.orbitalhq.nebula.NebulaStackWithSource
+import com.orbitalhq.nebula.core.StackBundle
+import com.orbitalhq.nebula.resources.InvalidStackBundleException
+import com.orbitalhq.nebula.resources.StackBundleUnpacker
+import com.orbitalhq.nebula.resources.StackResourcesContext
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.io.File
 import kotlin.script.experimental.api.EvaluationResult
@@ -22,7 +26,14 @@ import kotlin.script.experimental.jvm.util.isError
 import kotlin.script.experimental.jvmhost.BasicJvmScriptingHost
 import kotlin.script.experimental.jvmhost.createJvmCompilationConfigurationFromTemplate
 
-class NebulaScriptExecutor(private val logCompilationErrors: Boolean = true) {
+class NebulaScriptExecutor(
+    private val logCompilationErrors: Boolean = true,
+    /**
+     * Writes the resources of a submitted bundle into a directory of their own.
+     * Injectable so tests can point bundles at a temp directory they control.
+     */
+    private val bundleUnpacker: StackBundleUnpacker = StackBundleUnpacker()
+) {
     companion object {
         private val logger = KotlinLogging.logger {}
     }
@@ -97,6 +108,47 @@ class NebulaScriptExecutor(private val logCompilationErrors: Boolean = true) {
         val source = string.toScriptSource()
         return compileStack(source)
             .map { NebulaStackWithSource(it, string, hostConfig) }
+    }
+
+    /**
+     * Compiles a stack submitted as a bundle: the script plus the files that
+     * shipped with it.
+     *
+     * The bundle is unpacked first, and bound for the duration of the evaluation,
+     * because the `stack { }` block runs *during* compilation - that's when
+     * `s3 { file("data/sales.csv") }` and friends resolve their paths.
+     *
+     * Anything wrong with the bundle itself (an entry that escapes the bundle
+     * directory, a file over the size limit) is reported as a compilation error,
+     * so it reaches the submitter through the same channel as a syntax error,
+     * rather than as an opaque 500.
+     *
+     * If compilation fails the unpacked directory is removed - a rejected
+     * submission must not leave files behind.
+     */
+    fun compileBundle(
+        stackName: String,
+        bundle: StackBundle,
+        hostConfig: HostConfig
+    ): Either<NebulaCompilationException, NebulaStackWithSource> {
+        val resources = try {
+            bundleUnpacker.unpack(stackName, bundle)
+        } catch (e: InvalidStackBundleException) {
+            logger.warn { "Rejecting bundle for stack '$stackName' - ${e.message}" }
+            return NebulaCompilationException.forSyntheticDiagnostic(
+                e.message ?: "The resources submitted with this stack could not be unpacked"
+            ).left()
+        }
+
+        return StackResourcesContext.withResources(resources) {
+            compileStack(bundle.script.toScriptSource())
+        }.fold(
+            { compilationError ->
+                resources.delete()
+                compilationError.left()
+            },
+            { stack -> NebulaStackWithSource(stack, bundle.script, hostConfig).right() }
+        )
     }
 
     @Deprecated("call compileToStackWithSource")

@@ -32,6 +32,13 @@ curl --location 'http://localhost:8099/stacks' \
 }'
 ```
 
+### Creating a stack that ships files
+
+A script that reads a file — a CSV to seed a bucket, an OpenAPI spec — needs that
+file to travel with it, because the Nebula server's filesystem is not the
+project's. POST a bundle to `/stacks/bundle` instead, and read the files through
+`resources` inside the script. See [Shipping files with a stack](/bundles).
+
 ### Listing the state of current stacks
 Fetch the current stacks (including their configured variables) by GET `/stacks`
 

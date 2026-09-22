@@ -65,6 +65,16 @@ The DSL supports: Kafka, HTTP servers, SQL databases (PostgreSQL/MySQL/Oracle wi
 - Default imports provide common utilities
 - Components implement `InfrastructureComponent<*>` interface
 
+### Stack bundles
+- A stack can be submitted with the files it reads (`StackBundle` in nebula-api)
+  via `POST /stacks/bundle`, `PUT /stacks/bundle/{id}`, or the `bundles` field of
+  the `/stream/stacks` websocket message. The script-only routes are unchanged.
+- Resources unpack into a per-submission temp directory. `StackResources`
+  (nebula-dsl) confines every lookup to that directory; scripts reach it through
+  `resources` inside `stack { }`, and providers that read files resolve relative
+  paths through `StackResources.resolveFilePath`.
+- See `docs/pages/bundles.mdx` and §8 of `NEBULA-AGENT.md`.
+
 ### Testing
 - Uses Kotest framework with descriptive specifications
 - TestContainers for integration testing
