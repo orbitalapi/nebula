@@ -11,6 +11,9 @@ import com.orbitalhq.nebula.endpointFor
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.logging.LoggerName
+import com.orbitalhq.nebula.tools.ProvidesTools
+import com.orbitalhq.nebula.tools.ToolDefinition
+import com.orbitalhq.nebula.tools.stackPortTool
 import mu.KotlinLogging
 import org.testcontainers.localstack.LocalStackContainer
 import org.testcontainers.utility.DockerImageName
@@ -40,7 +43,7 @@ data class DeployedRestApi(val name: String, val apiId: String, val stage: Strin
  * The emitted config is flat so Orbital can expose every value as an env variable, eg
  * `NEBULA_API_GATEWAY_ENDPOINT_OVERRIDE` and `NEBULA_API_GATEWAY_PETS_API_ID`.
  */
-class ApiGatewayExecutor(private val config: ApiGatewayConfig, loggers: List<LoggerName>) : InfrastructureComponent<Map<String, String>> {
+class ApiGatewayExecutor(private val config: ApiGatewayConfig, loggers: List<LoggerName>) : InfrastructureComponent<Map<String, String>>, ProvidesTools {
     private lateinit var localstack: LocalStackContainer
     lateinit var client: ApiGatewayClient
         private set
@@ -119,6 +122,10 @@ class ApiGatewayExecutor(private val config: ApiGatewayConfig, loggers: List<Log
     override fun stop() {
         eventSource.stopContainerAndEmitEvents(localstack)
     }
+
+    override fun tools(): List<ToolDefinition> = listOf(
+        stackPortTool(localstack, LOCALSTACK_INTERNAL_PORT, "Browse the deployed REST APIs")
+    )
 
     /** The stage's OpenAPI 3 export, as API Gateway serves it to Orbital. */
     fun exportOpenApi(apiName: String): String {

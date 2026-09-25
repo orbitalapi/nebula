@@ -71,3 +71,22 @@ fun NebulaConfig.endpointFor(
     ConsumerConnectivity.HOST -> Endpoint(container.host, container.getMappedPort(internalPort))
     ConsumerConnectivity.NETWORK -> Endpoint(alias, internalPort)
 }
+
+/**
+ * An address that reaches exactly this container from another container on the Nebula network.
+ *
+ * Prefer this over the network alias (conventionally the componentName) when a container
+ * must reach one specific component: stacks share a network and can reuse component names,
+ * so an alias like `s3` may resolve to another stack's container.
+ *
+ * This is the container's IP rather than its name, as docker's generated names contain
+ * underscores, which aren't valid in a hostname (and AWS SDKs reject them in endpoint URLs).
+ */
+val GenericContainer<*>.uniqueNetworkHost: String
+    get() {
+        val network = this.network ?: error("Container $containerName is not attached to a Nebula network")
+        return containerInfo.networkSettings.networks.values
+            .firstOrNull { it.networkID == network.id }
+            ?.ipAddress
+            ?: error("Container $containerName has no address on network ${network.id}")
+    }

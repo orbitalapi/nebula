@@ -5,6 +5,8 @@ import com.orbitalhq.nebula.core.ComponentState
 import com.orbitalhq.nebula.core.StackStateEvent
 import com.orbitalhq.nebula.events.computeStackStateEventFor
 import com.orbitalhq.nebula.logging.LogMessage
+import com.orbitalhq.nebula.tools.ToolRunner
+import com.orbitalhq.nebula.tools.ToolView
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.testcontainers.containers.Network
 import reactor.core.publisher.Flux
@@ -57,6 +59,7 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
     private val logger = KotlinLogging.logger {}
     val stacks = ConcurrentHashMap<StackName, NebulaStackWithSource>()
     private val _stackState = ConcurrentHashMap<StackName, Map<String, ComponentInfo<*>>>()
+    private val toolRunner = ToolRunner(config.network)
 
     fun submit(submittedStack: NebulaStackWithSource, name: StackName = submittedStack.name, startAsync: Boolean = false): Flux<StackStateEvent> {
         val storedStack = this.stacks.compute(name) { key, existingSpec ->
@@ -152,6 +155,23 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
             ?: error("Component $componentId not found in stack $stackName")
     }
 
+    /** The tools offered by each running component in a stack, keyed by component id. */
+    fun tools(stackName: StackName): Map<String, List<ToolView>> {
+        val stack = this.stacks[stackName] ?: return emptyMap()
+        return toolRunner.toolsFor(stackName, stack.stack.components)
+    }
+
+    /** Launches a component's tool in the background. See [ToolRunner.launch]. */
+    fun launchTool(stackName: StackName, componentId: String, toolId: String): ToolView {
+        return toolRunner.launch(stackName, findComponent(stackName, componentId), toolId)
+    }
+
+    /** Stops a component's tool. Returns null if the tool wasn't launched. */
+    fun stopTool(stackName: StackName, componentId: String, toolId: String): ToolView? {
+        findComponent(stackName, componentId)
+        return toolRunner.stop(stackName, componentId, toolId)
+    }
+
     /**
      * Stops a single component within a stack, leaving the rest of the stack running.
      */
@@ -231,6 +251,8 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
     fun shutDown(name: String) {
         val spec = this.stacks[name] ?: error("Spec $name not found")
         logger.info { "Shutting down ${spec.name}" }
+        // Components stopping would take their tools down anyway - this just doesn't rely on it.
+        toolRunner.stopAll(name)
         spec.stack.components.forEach {
             try {
                 logger.info { "Stopping ${it.name}" }

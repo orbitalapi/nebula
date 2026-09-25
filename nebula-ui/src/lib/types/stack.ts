@@ -63,6 +63,23 @@ export interface CompilationError {
   severity: string;
 }
 
+export type ToolState = 'Available' | 'Starting' | 'Running' | 'Failed';
+
+/**
+ * A tool a component can launch (eg: an admin console) — see
+ * com.orbitalhq.nebula.tools.ToolView. `hostPort` is set once running; build the
+ * URL from the host the UI was loaded from.
+ */
+export interface ToolView {
+  id: string;
+  displayName: string;
+  description: string;
+  state: ToolState;
+  message: string | null;
+  hostPort: number | null;
+  path: string;
+}
+
 /**
  * Unified admin view of a submitted stack — returned by GET /api/stacks.
  * Either a compiled stack (with `stackState`) or a failed submission
@@ -73,6 +90,8 @@ export interface AdminStackView {
   stackState: StackStateEvent | null;
   source: string;
   compilationErrors: CompilationError[];
+  /** Tools offered by each running component, keyed by component id. */
+  tools: Record<string, ToolView[]>;
 }
 
 /** A single log line — see com.orbitalhq.nebula.logging.LogMessage. */
@@ -100,6 +119,8 @@ export interface StackSummary {
   compilationErrors: CompilationError[];
   /** The script the stack was submitted with. */
   source: string;
+  /** Tools offered by each running component, keyed by component id. */
+  tools: Record<string, ToolView[]>;
 }
 
 /**
@@ -130,5 +151,6 @@ export function toStackSummary(view: AdminStackView): StackSummary {
     failed,
     compilationErrors: view.compilationErrors,
     source: view.source,
+    tools: view.tools ?? {},
   };
 }
