@@ -94,7 +94,13 @@ nebula script.nebula.kts
 
 # Start HTTP server mode
 nebula --http=8099
+
+# HTTP server mode, holding submitted stacks until they're started from the UI
+# (or set NEBULA_STACK_START=manual)
+nebula --http=8099 --stack-start=manual
 ```
+
+See `docs/pages/cli.mdx` for all CLI options.
 
 ### Docker Usage
 ```bash

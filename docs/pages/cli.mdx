@@ -19,7 +19,36 @@ nebula --http=8099
 | `--http`         |                      |                  | Start the HTTP server on the given port instead of running a script         |
 | `--network`      | `NEBULA_NETWORK`     | `nebula_network` | Disambiguates which docker network to attach started containers to, when Nebula is attached to more than one. Only used in `network` mode (see below); in `host` mode an isolated network is always created |
 | `--connectivity` | `NEBULA_CONNECTIVITY`| `host`           | How the host + port of each container is reported to consumers (see below)  |
+| `--stack-start`  | `NEBULA_STACK_START` | `auto`           | `auto` starts each stack as soon as it's submitted. `manual` holds submitted stacks until they're started from the management UI (see below). Only applies with `--http` |
 | `-v`, `--verbose`|                      | `false`          | Enable verbose output                                                       |
+
+## Starting stacks manually
+
+By default, the HTTP server starts every stack as soon as it's submitted. With
+`--stack-start=manual`, submitted stacks are held as **Not started** until you start them
+from the management UI, or with `POST /api/stacks/{id}/start`. This is handy for demos, or
+when an Orbital that connects submits more stacks than you want running.
+
+```bash
+nebula --http=8099 --stack-start=manual
+
+# or, via the environment
+NEBULA_STACK_START=manual nebula --http=8099
+```
+
+In docker-compose, set it with the `NEBULA_STACK_START` environment variable:
+
+```yaml
+  nebula:
+    image: orbitalhq/nebula:latest
+    environment:
+      - NEBULA_STACK_START=manual
+```
+
+Consumers still see a held stack: it's reported as `NotStarted`, and they get its
+coordinates once it starts. Resubmitting a stack still replaces it, and the replacement
+also waits to be started. When running a script directly there's no UI to start it from, so
+the setting is ignored and the stack starts straight away.
 
 ## Connectivity modes
 

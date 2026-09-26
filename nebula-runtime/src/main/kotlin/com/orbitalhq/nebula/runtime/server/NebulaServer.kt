@@ -279,12 +279,14 @@ class NebulaServer(
                         require(frame is Frame.Text) { "Only text frames supported" }
                         val payloadJson = frame.readText()
 
-                        logger.info { "Received updated stack submission: \n$payloadJson" }
                         // Any failure handling a submission must not tear down the socket —
                         // the client would see nothing but a dropped connection.
                         try {
                             val updateStacksRequest =
                                 objectMapper.readValue<UpdateStackRSocketRequest>(payloadJson)
+                            // Just the names - the scripts themselves are far too noisy to log.
+                            val submitted = updateStacksRequest.allBundles().keys
+                            logger.info { "Received submission of ${submitted.size} stack(s): ${submitted.joinToString()}" }
 
                             // Compile each stack independently: a broken script must not block
                             // the other stacks in the submission. Failures are reported back to

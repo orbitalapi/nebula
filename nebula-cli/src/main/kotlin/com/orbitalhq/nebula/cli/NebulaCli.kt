@@ -6,6 +6,7 @@ import com.orbitalhq.nebula.HostConfig
 import com.orbitalhq.nebula.NebulaConfig
 import com.orbitalhq.nebula.NebulaStackWithSource
 import com.orbitalhq.nebula.StackRunner
+import com.orbitalhq.nebula.StackStartMode
 import com.orbitalhq.nebula.runtime.NebulaCompilationException
 import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
 import com.orbitalhq.nebula.runtime.server.NebulaServer
@@ -62,6 +63,17 @@ class Nebula : Callable<Int> {
     )
     lateinit var connectivity: ConsumerConnectivity
 
+    @Option(
+        names = ["--stack-start"],
+        description = [
+            "Whether submitted stacks start straight away. ",
+            "auto (default): start each stack as soon as it's submitted. ",
+            "manual: hold submitted stacks until they're started from the management UI. Only applies with --http."
+        ],
+        defaultValue = "\${NEBULA_STACK_START:-auto}"
+    )
+    lateinit var stackStart: StackStartMode
+
     private var fileWatcher: FileWatcher? = null
     private var currentStackRunner: StackRunner? = null
 
@@ -72,9 +84,15 @@ class Nebula : Callable<Int> {
             return spec.exitCodeOnExecutionException()
         }
         val network = networkOrError.getOrThrow()
-        val nebulaConfig = NebulaConfig(networkName, network, connectivity)
+        val nebulaConfig = NebulaConfig(networkName, network, connectivity, stackStart)
         when {
-            scriptFile != null -> return executeScript(nebulaConfig)
+            scriptFile != null -> {
+                // There's no UI to start a stack from when running a script, so always start it.
+                if (stackStart == StackStartMode.MANUAL) {
+                    spec.commandLine().err.println("--stack-start=manual only applies with --http - starting the script's stack straight away")
+                }
+                return executeScript(nebulaConfig.copy(stackStart = StackStartMode.AUTO))
+            }
             httpPort != null -> return startHttpServer(nebulaConfig)
             else -> throw ParameterException(
                 spec.commandLine(),
@@ -294,6 +312,9 @@ class Nebula : Callable<Int> {
     private fun startHttpServer(nebulaConfig: NebulaConfig): Int {
         // Placeholder function for HTTP server
         spec.commandLine().out.println("Starting HTTP server on port $httpPort")
+        if (nebulaConfig.stackStart == StackStartMode.MANUAL) {
+            spec.commandLine().out.println("Submitted stacks will wait to be started from the UI (--stack-start=manual)")
+        }
         NebulaServer(httpPort!!, config = nebulaConfig).start()
         spec.commandLine().out.println("Server running - Press Ctrl+C to stop")
         while (true) {

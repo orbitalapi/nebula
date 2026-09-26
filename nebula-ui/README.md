@@ -9,6 +9,10 @@ It talks to the HTTP API exposed when Nebula is started with an HTTP port:
 nebula --http=8099   # 8099 is the default
 ```
 
+Start it with `--stack-start=manual` (or `NEBULA_STACK_START=manual`) and submitted
+stacks wait as **Not started** until you start them from the UI. By default they start
+as soon as they're submitted.
+
 ## Tech
 
 React 19 + Vite + TypeScript + Tailwind 4 + shadcn/ui.
