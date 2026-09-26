@@ -30,6 +30,16 @@ export type ComponentState =
   | 'Stopped'
   | 'Failed';
 
+/** States a stack can be started from. */
+export function isStartable(state: ComponentState): boolean {
+  return state === 'Stopped' || state === 'NotStarted';
+}
+
+/** Human-readable label for a state. */
+export function stateLabel(state: ComponentState): string {
+  return state === 'NotStarted' ? 'Not started' : state;
+}
+
 /** The states that represent an in-progress transition (show a spinner). */
 export const TRANSITION_STATES: ComponentState[] = ['Starting', 'Stopping'];
 
@@ -104,7 +114,9 @@ export interface StackSummary {
 
 /**
  * Collapses a stack's per-component states into one headline status.
- * Failed > any transition > Running (if all running) > otherwise Stopped.
+ * Failed > any transition > Running (if all running) > NotStarted (if none have
+ * ever started, eg: submitted to a server running with --stack-start=manual) >
+ * otherwise Stopped.
  */
 export function deriveOverallState(
   components: ComponentInfoWithState[],
@@ -114,6 +126,7 @@ export function deriveOverallState(
   if (states.includes('Failed')) return 'Failed';
   if (states.some((s) => TRANSITION_STATES.includes(s))) return 'Starting';
   if (states.every((s) => s === 'Running')) return 'Running';
+  if (states.every((s) => s === 'NotStarted')) return 'NotStarted';
   if (states.every((s) => s === 'Stopped' || s === 'NotStarted')) return 'Stopped';
   return 'Running';
 }

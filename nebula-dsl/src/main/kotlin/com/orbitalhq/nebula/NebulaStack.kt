@@ -95,10 +95,23 @@ class NebulaStack(
         return component
     }
 
+    private val listening = AtomicBoolean(false)
+
+    /**
+     * Relays the components' lifecycle events and logs to the stack's [lifecycleEvents]
+     * and [logMessages]. Idempotent - a stack only needs wiring once, whether it's
+     * started on submission or later on.
+     */
+    fun attachListeners() {
+        if (listening.compareAndSet(false, true)) {
+            stackStateEventSource.listenForEvents(name, components)
+            logStream.attachLogStreams(components)
+        }
+    }
+
     fun startComponents(config: NebulaConfig, hostConfig: HostConfig): Map<String, ComponentInfo<out Any?>> {
         markStarted()
-        stackStateEventSource.listenForEvents(name, components)
-        logStream.attachLogStreams(components)
+        attachListeners()
         return components.mapNotNull { component ->
             try {
                 component.type to component.start(config, hostConfig)

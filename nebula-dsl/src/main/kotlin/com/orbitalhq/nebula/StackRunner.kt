@@ -33,10 +33,21 @@ import kotlin.concurrent.thread
  */
 enum class ConsumerConnectivity { HOST, NETWORK }
 
+/**
+ * Whether a submitted stack starts straight away.
+ *
+ *  - [AUTO]: start every stack as soon as it's submitted. **(default)**
+ *  - [MANUAL]: hold submitted stacks (NotStarted) until they're started explicitly,
+ *    eg: from the management UI. Resubmitting a stack still replaces it, but the
+ *    replacement also waits to be started.
+ */
+enum class StackStartMode { AUTO, MANUAL }
+
 data class NebulaConfig(
     val networkName: String = "nebula_network",
     val network: Network = Network.newNetwork(),
-    val connectivity: ConsumerConnectivity = ConsumerConnectivity.HOST
+    val connectivity: ConsumerConnectivity = ConsumerConnectivity.HOST,
+    val stackStart: StackStartMode = StackStartMode.AUTO
 )
 
 /**
@@ -81,6 +92,16 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
             }
             submittedStack
         } ?: error("After submitting stack $name, no stack was created.")
+
+        if (config.stackStart == StackStartMode.MANUAL) {
+            // Wire up events + logs now, so consumers see the stack (as NotStarted)
+            // and hear about it once it's started.
+            storedStack.stack.attachListeners()
+            if (!storedStack.stack.started) {
+                logger.info { "Stack $name submitted - waiting to be started manually" }
+            }
+            return stackEvents(name)
+        }
 
         // Only start if the stack that got stored was the one that got submitted.
         // Otherwise it's someone elses stack, and already running
@@ -168,7 +189,10 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
         val stackWithSource = this.stacks[stackName] ?: error("Stack $stackName not found")
         val component = findComponent(stackName, componentId)
         logger.info { "Starting component $componentId in stack $stackName" }
+        // A stack that was never started (see StackStartMode.MANUAL) isn't listening yet
+        stackWithSource.stack.attachListeners()
         component.start(config, stackWithSource.hostConfig)
+        recordState(stackName)
     }
 
 
@@ -198,6 +222,8 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
     fun startStack(name: StackName) {
         val stackWithSource = this.stacks[name] ?: error("Stack $name not found")
         logger.info { "Starting stack $name" }
+        // A stack that was never started (see StackStartMode.MANUAL) isn't listening yet
+        stackWithSource.stack.attachListeners()
         stackWithSource.stack.components.forEach { component ->
             if (component.currentState.state != ComponentState.Running) {
                 try {
@@ -208,6 +234,15 @@ class StackRunner(private val config: NebulaConfig = NebulaConfig()) {
             }
         }
         stackWithSource.stack.markStarted()
+        recordState(name)
+    }
+
+    /** Refreshes the component info reported by [stateState] (the Orbital-facing GET /stacks). */
+    private fun recordState(name: StackName) {
+        val stack = this.stacks[name]?.stack ?: return
+        _stackState[name] = stack.components
+            .mapNotNull { component -> component.componentInfo?.let { component.type to it } }
+            .toMap()
     }
 
     /**
