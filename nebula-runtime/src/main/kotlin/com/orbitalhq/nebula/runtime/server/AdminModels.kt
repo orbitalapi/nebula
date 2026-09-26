@@ -3,6 +3,7 @@ package com.orbitalhq.nebula.runtime.server
 import com.orbitalhq.nebula.StackName
 import com.orbitalhq.nebula.core.CompilationError
 import com.orbitalhq.nebula.core.StackStateEvent
+import com.orbitalhq.nebula.tools.ToolView
 import kotlin.script.experimental.api.ScriptDiagnostic
 
 /**
@@ -25,7 +26,9 @@ data class AdminStackView(
     val name: StackName,
     val stackState: StackStateEvent?,
     val source: String,
-    val compilationErrors: List<CompilationError>
+    val compilationErrors: List<CompilationError>,
+    /** Tools offered by each running component, keyed by component id. */
+    val tools: Map<String, List<ToolView>> = emptyMap()
 ) {
     val failedCompilation: Boolean get() = compilationErrors.isNotEmpty()
 }

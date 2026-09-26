@@ -379,13 +379,14 @@ fun apiGateway(imageName: String = "localstack/localstack:3.0.2",
                componentName: String = "apiGateway",
                dsl: ApiGatewayBuilder.(KLogger) -> Unit)
 
-fun restApi(name: String, openApi: String, stage: String = "prod")
-fun restApiFromFile(name: String, path: String, stage: String = "prod")
+fun restApi(name: String, openApi: String, stage: String = "prod", apiId: String = name.lowercase())
+fun restApiFromFile(name: String, path: String, stage: String = "prod", apiId: String = name.lowercase())
 ```
 
 Rules:
 - `name` must start with a letter and contain only letters, digits, dashes and underscores. It keys the emitted config: `petsApiId`, `petsStage`, `petsInvokeUrl` (dashes are camel-cased: `pet-store` -> `petStoreApiId`).
-- Every operation in the spec MUST declare a response schema — Orbital's OpenAPI import needs one to build a return type.
+- The API's id is stable across restarts: the name in lower case, or `apiId` if given (lower-case letters, digits, dashes, underscores). Do not generate random ids — an Orbital registry selection records the id.
+- Every operation in the spec MUST declare a response schema, as a **named** schema under `components/schemas` referenced with `$ref` — API Gateway only exports named models, so an inline response schema (eg a bare `type: array`) is dropped on import and Orbital then rejects the export.
 - To make the deployed API answer requests, put `x-amazon-apigateway-integration` blocks in the spec, as on AWS. Without them the API exists for schema export only.
 - REST APIs only. The community LocalStack image has no HTTP API (API Gateway v2) support.
 

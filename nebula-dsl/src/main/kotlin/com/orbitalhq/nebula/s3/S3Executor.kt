@@ -11,6 +11,9 @@ import com.orbitalhq.nebula.endpointFor
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.logging.LoggerName
+import com.orbitalhq.nebula.tools.ProvidesTools
+import com.orbitalhq.nebula.tools.ToolDefinition
+import com.orbitalhq.nebula.tools.stackPortTool
 import org.testcontainers.localstack.LocalStackContainer
 import org.testcontainers.utility.DockerImageName
 import reactor.core.publisher.Flux
@@ -27,7 +30,7 @@ val StackRunner.s3: List<S3Executor>
         return this.component<S3Executor>()
     }
 
-class S3Executor(private val config: S3Config, loggers: List<LoggerName>) : InfrastructureComponent<LocalstackContainerConfig> {
+class S3Executor(private val config: S3Config, loggers: List<LoggerName>) : InfrastructureComponent<LocalstackContainerConfig>, ProvidesTools {
     private lateinit var localstack: LocalStackContainer
     lateinit var s3Client: S3Client
         private set
@@ -97,6 +100,10 @@ class S3Executor(private val config: S3Config, loggers: List<LoggerName>) : Infr
     override fun stop() {
         eventSource.stopContainerAndEmitEvents(localstack)
     }
+
+    override fun tools(): List<ToolDefinition> = listOf(
+        stackPortTool(localstack, LOCALSTACK_INTERNAL_PORT, "Browse and edit buckets and objects")
+    )
 
     private fun createBucket(bucketConfig: BucketConfig) {
         s3Client.createBucket { it.bucket(bucketConfig.name) }

@@ -40,9 +40,14 @@ class ApiGatewayBuilder(
      *
      * [name] is how the API is referred to in the emitted config (eg `petsApiId`), so keep it
      * to letters and digits.
+     *
+     * [apiId] is the id the API gets on the gateway. It defaults to [name] in lower case, so the id
+     * is the same on every start of the stack: anything that recorded it (an Orbital registry
+     * selection, an env variable in a config file) keeps working after a restart. LocalStack
+     * honours the requested id; a real gateway would assign its own.
      */
-    fun restApi(name: String, openApi: String, stage: String = "prod") {
-        apis.add(RestApiConfig(name, stage, openApi))
+    fun restApi(name: String, openApi: String, stage: String = "prod", apiId: String = name.lowercase()) {
+        apis.add(RestApiConfig(name, stage, openApi, apiId))
     }
 
     /**
@@ -51,8 +56,8 @@ class ApiGatewayBuilder(
      * A relative path resolves through the stack's bundle (the files shipped alongside the
      * script). An absolute path is read from the machine running Nebula.
      */
-    fun restApiFromFile(name: String, path: String, stage: String = "prod") {
-        restApi(name, Files.readString(Path.of(stackResources.resolveFilePath(path))), stage)
+    fun restApiFromFile(name: String, path: String, stage: String = "prod", apiId: String = name.lowercase()) {
+        restApi(name, Files.readString(Path.of(stackResources.resolveFilePath(path))), stage, apiId)
     }
 
     fun build(): ApiGatewayConfig = ApiGatewayConfig(imageName, apis, componentName)
@@ -60,10 +65,13 @@ class ApiGatewayBuilder(
 
 data class ApiGatewayConfig(val imageName: String, val apis: List<RestApiConfig>, val componentName: String)
 
-data class RestApiConfig(val name: String, val stage: String, val openApi: String) {
+data class RestApiConfig(val name: String, val stage: String, val openApi: String, val apiId: String) {
     init {
         require(name.matches(Regex("[A-Za-z][A-Za-z0-9_-]*"))) {
             "REST API name '$name' must start with a letter and contain only letters, digits, dashes and underscores"
+        }
+        require(apiId.matches(Regex("[a-z0-9][a-z0-9_-]*"))) {
+            "REST API id '$apiId' must be lower-case letters, digits, dashes and underscores"
         }
     }
 }

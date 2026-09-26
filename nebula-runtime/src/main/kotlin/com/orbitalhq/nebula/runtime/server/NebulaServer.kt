@@ -13,6 +13,7 @@ import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.core.StackBundle
 import com.orbitalhq.nebula.core.StackStateEvent
 import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
+import com.orbitalhq.nebula.tools.ToolNotAvailableException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.*
 import io.ktor.serialization.jackson.*
@@ -62,7 +63,8 @@ class NebulaServer(
                 name = event.stackName,
                 stackState = event,
                 source = stackExecutor.sourceFor(event.stackName) ?: "",
-                compilationErrors = emptyList()
+                compilationErrors = emptyList(),
+                tools = stackExecutor.tools(event.stackName)
             )
         }
         val compiledNames = compiled.map { it.name }.toSet()
@@ -212,6 +214,18 @@ class NebulaServer(
                     post("/{id}/components/{componentId}/start") {
                         handleComponentAction(call) { id, componentId ->
                             stackExecutor.startComponent(id, componentId)
+                        }
+                    }
+                    // Launch one of a component's tools (eg: an admin console). Returns
+                    // straight away with the tool Starting - poll the snapshot for when it's up.
+                    post("/{id}/components/{componentId}/tools/{toolId}/launch") {
+                        handleToolAction(call) { id, componentId, toolId ->
+                            stackExecutor.launchTool(id, componentId, toolId)
+                        }
+                    }
+                    post("/{id}/components/{componentId}/tools/{toolId}/stop") {
+                        handleToolAction(call) { id, componentId, toolId ->
+                            stackExecutor.stopTool(id, componentId, toolId)
                         }
                     }
                 }
@@ -369,6 +383,30 @@ class NebulaServer(
             return call.respond(HttpStatusCode.NotFound, e.message ?: "Not found")
         }
         call.respond(buildAdminSnapshot())
+    }
+
+    private suspend fun handleToolAction(
+        call: ApplicationCall,
+        action: (id: String, componentId: String, toolId: String) -> Any?
+    ) {
+        val id = call.parameters["id"]
+            ?: return call.respond(HttpStatusCode.BadRequest, "Missing or malformed id")
+        val componentId = call.parameters["componentId"]
+            ?: return call.respond(HttpStatusCode.BadRequest, "Missing or malformed componentId")
+        val toolId = call.parameters["toolId"]
+            ?: return call.respond(HttpStatusCode.BadRequest, "Missing or malformed toolId")
+        val result = try {
+            action(id, componentId, toolId)
+        } catch (e: ToolNotAvailableException) {
+            return call.respond(HttpStatusCode.Conflict, e.message ?: "Tool not available")
+        } catch (e: IllegalStateException) {
+            return call.respond(HttpStatusCode.NotFound, e.message ?: "Not found")
+        }
+        if (result == null) {
+            call.respond(HttpStatusCode.NoContent)
+        } else {
+            call.respond(result)
+        }
     }
 
     private suspend fun handleComponentAction(

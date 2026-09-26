@@ -1,5 +1,5 @@
 import { handleApiError } from './api-error';
-import type { AdminStackView, CompilationError, StackStateEvent } from './types/stack';
+import type { AdminStackView, CompilationError, StackStateEvent, ToolView } from './types/stack';
 
 /**
  * Client for the Nebula server's admin API. All requests are same-origin:
@@ -108,6 +108,58 @@ async function componentAction(
     await handleApiError(response, `Failed to ${action} component`);
   }
   return response.json();
+}
+
+/**
+ * Launch one of a component's tools. Returns straight away with the tool
+ * `Starting` — it shows as `Running` in the snapshot once it's up.
+ */
+export async function launchTool(
+  stackName: string,
+  componentId: string,
+  toolId: string,
+): Promise<ToolView> {
+  const response = await fetch(toolPath(stackName, componentId, toolId, 'launch'), {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to launch tool');
+  }
+  return response.json();
+}
+
+/** Stop a component's tool. */
+export async function stopTool(
+  stackName: string,
+  componentId: string,
+  toolId: string,
+): Promise<void> {
+  const response = await fetch(toolPath(stackName, componentId, toolId, 'stop'), {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    await handleApiError(response, 'Failed to stop tool');
+  }
+}
+
+function toolPath(
+  stackName: string,
+  componentId: string,
+  toolId: string,
+  action: 'launch' | 'stop',
+): string {
+  return `/api/stacks/${encodeURIComponent(stackName)}/components/${encodeURIComponent(
+    componentId,
+  )}/tools/${encodeURIComponent(toolId)}/${action}`;
+}
+
+/**
+ * Where to open a running tool. Uses the host this UI was loaded from, so it
+ * works when Nebula is running on another machine.
+ */
+export function toolUrl(tool: ToolView): string | null {
+  if (tool.hostPort == null) return null;
+  return `${window.location.protocol}//${window.location.hostname}:${tool.hostPort}${tool.path}`;
 }
 
 /** Path for the per-stack log websocket. */
