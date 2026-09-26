@@ -165,6 +165,7 @@ export default function StackDetail() {
             <ComponentsView
               stackName={name}
               components={stack.components}
+              tools={stack.tools}
               onChanged={load}
             />
           </TabsContent>

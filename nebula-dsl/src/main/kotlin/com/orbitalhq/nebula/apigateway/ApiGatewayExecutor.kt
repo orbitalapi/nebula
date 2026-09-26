@@ -11,6 +11,10 @@ import com.orbitalhq.nebula.endpointFor
 import com.orbitalhq.nebula.events.ComponentLifecycleEventSource
 import com.orbitalhq.nebula.logging.LogStream
 import com.orbitalhq.nebula.logging.LoggerName
+import com.orbitalhq.nebula.tools.ProvidesTools
+import com.orbitalhq.nebula.tools.ToolDefinition
+import com.orbitalhq.nebula.tools.stackPortTool
+import mu.KotlinLogging
 import org.testcontainers.localstack.LocalStackContainer
 import org.testcontainers.utility.DockerImageName
 import reactor.core.publisher.Flux
@@ -18,6 +22,9 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.apigateway.ApiGatewayClient
+import software.amazon.awssdk.services.apigateway.model.PutMode
+
+private val logger = KotlinLogging.logger {}
 
 val StackRunner.apiGateway: List<ApiGatewayExecutor>
     get() {
@@ -36,7 +43,7 @@ data class DeployedRestApi(val name: String, val apiId: String, val stage: Strin
  * The emitted config is flat so Orbital can expose every value as an env variable, eg
  * `NEBULA_API_GATEWAY_ENDPOINT_OVERRIDE` and `NEBULA_API_GATEWAY_PETS_API_ID`.
  */
-class ApiGatewayExecutor(private val config: ApiGatewayConfig, loggers: List<LoggerName>) : InfrastructureComponent<Map<String, String>> {
+class ApiGatewayExecutor(private val config: ApiGatewayConfig, loggers: List<LoggerName>) : InfrastructureComponent<Map<String, String>>, ProvidesTools {
     private lateinit var localstack: LocalStackContainer
     lateinit var client: ApiGatewayClient
         private set
@@ -116,6 +123,10 @@ class ApiGatewayExecutor(private val config: ApiGatewayConfig, loggers: List<Log
         eventSource.stopContainerAndEmitEvents(localstack)
     }
 
+    override fun tools(): List<ToolDefinition> = listOf(
+        stackPortTool(localstack, LOCALSTACK_INTERNAL_PORT, "Browse the deployed REST APIs")
+    )
+
     /** The stage's OpenAPI 3 export, as API Gateway serves it to Orbital. */
     fun exportOpenApi(apiName: String): String {
         val api = deployedApis[apiName] ?: error("No REST API named '$apiName' is declared. Known: ${deployedApis.keys}")
@@ -125,9 +136,17 @@ class ApiGatewayExecutor(private val config: ApiGatewayConfig, loggers: List<Log
     }
 
     private fun importAndDeploy(api: RestApiConfig, endpointOverride: String): DeployedRestApi {
-        val apiId = client.importRestApi {
-            it.body(SdkBytes.fromUtf8String(api.openApi)).failOnWarnings(false)
+        // Create the API with the id we want (LocalStack takes it from the _custom_id_ tag), then
+        // import the spec into it. importRestApi alone would mint a fresh id on every start.
+        val apiId = client.createRestApi {
+            it.name(api.name).tags(mapOf(CUSTOM_ID_TAG to api.apiId))
         }.id()
+        if (apiId != api.apiId) {
+            logger.warn { "Requested id '${api.apiId}' for REST API ${api.name} but the gateway assigned '$apiId'; it will change on the next start" }
+        }
+        client.putRestApi {
+            it.restApiId(apiId).mode(PutMode.OVERWRITE).failOnWarnings(false).body(SdkBytes.fromUtf8String(api.openApi))
+        }
         val deploymentId = client.createDeployment { it.restApiId(apiId).stageName(api.stage) }.id()
         // LocalStack's stage URL. A real gateway uses https://{id}.execute-api.{region}.amazonaws.com/{stage}.
         val invokeUrl = "${endpointOverride.trimEnd('/')}/restapis/$apiId/${api.stage}/_user_request_"
@@ -143,3 +162,6 @@ class ApiGatewayExecutor(private val config: ApiGatewayConfig, loggers: List<Log
 
 // The (edge) port LocalStack listens on inside the container.
 private const val LOCALSTACK_INTERNAL_PORT = 4566
+
+// LocalStack assigns a resource the id given in this tag instead of generating one.
+private const val CUSTOM_ID_TAG = "_custom_id_"

@@ -15,6 +15,12 @@ interface LogsViewProps {
 const ALL = '__all__';
 const MAX_LOGS = 5000;
 
+function belongsTo(containerName: string, names: Set<string>): boolean {
+  if (names.has(containerName)) return true;
+  const slash = containerName.indexOf('/');
+  return slash > 0 && names.has(containerName.slice(0, slash));
+}
+
 export default function LogsView({ stackName, components }: LogsViewProps) {
   const [selected, setSelected] = useState<string>(ALL);
   const [logs, setLogs] = useState<LogMessage[]>([]);
@@ -43,7 +49,8 @@ export default function LogsView({ stackName, components }: LogsViewProps) {
   }, [logs, selected]);
 
   // A log belongs to a component if its containerName matches the component's
-  // name or its docker container name (logs come from both sources).
+  // name or its docker container name (logs come from both sources), or is from
+  // one of the component's tools (tagged `<component name>/<tool id>`).
   const namesFor = useMemo(() => {
     const map: Record<string, Set<string>> = {};
     for (const c of components) {
@@ -59,12 +66,12 @@ export default function LogsView({ stackName, components }: LogsViewProps) {
     if (selected === ALL) return logs;
     const names = namesFor[selected];
     if (!names) return [];
-    return logs.filter((l) => names.has(l.containerName));
+    return logs.filter((l) => belongsTo(l.containerName, names));
   }, [logs, selected, namesFor]);
 
   const countFor = (id: string) => {
     const names = namesFor[id];
-    return names ? logs.filter((l) => names.has(l.containerName)).length : 0;
+    return names ? logs.filter((l) => belongsTo(l.containerName, names)).length : 0;
   };
 
   return (

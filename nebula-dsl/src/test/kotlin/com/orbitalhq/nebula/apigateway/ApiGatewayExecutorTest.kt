@@ -30,6 +30,8 @@ class ApiGatewayExecutorTest : DescribeSpec({
             val gateway = infra.apiGateway.single()
             val pets = gateway.deployedApis.getValue("pets")
             pets.stage.shouldBe("v1")
+            // The id is the declared name, so it is the same on every start of the stack
+            pets.apiId.shouldBe("pets")
             pets.invokeUrl.shouldContain("/restapis/${pets.apiId}/v1/_user_request_")
 
             // What Orbital's registry sync will pull
@@ -43,6 +45,19 @@ class ApiGatewayExecutorTest : DescribeSpec({
             config.getValue("petsApiId").shouldBe(pets.apiId)
             config.getValue("petsStage").shouldBe("v1")
             config.getValue("petsInvokeUrl").shouldStartWith(config.getValue("endpointOverride"))
+        }
+
+        it("uses an explicit api id when one is given") {
+            infra = stack {
+                apiGateway {
+                    restApi("pets", stage = "v1", openApi = PETS_OPEN_API, apiId = "petsv2")
+                }
+            }.start()
+
+            val pets = infra.apiGateway.single().deployedApis.getValue("pets")
+            pets.apiId.shouldBe("petsv2")
+            pets.invokeUrl.shouldContain("/restapis/petsv2/v1/_user_request_")
+            infra.apiGateway.single().componentInfo!!.componentConfig.getValue("petsApiId").shouldBe("petsv2")
         }
 
         it("reads an OpenAPI spec shipped with the stack as a bundle resource") {

@@ -1,15 +1,197 @@
 import { useState, type MouseEvent } from 'react';
-import { ChevronDown, ChevronRight, Copy, Check, Play, Square, Loader2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Check,
+  Play,
+  Square,
+  Loader2,
+  Wrench,
+  ExternalLink,
+  AlertCircle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { showSuccessToast } from '@/lib/toast';
 import { getComponentIcon, StatusDot } from '@/lib/display';
-import { startComponent, stopComponent } from '@/lib/api';
-import { TRANSITION_STATES, stateLabel, type ComponentInfoWithState } from '@/lib/types/stack';
+import { launchTool, startComponent, stopComponent, stopTool, toolUrl } from '@/lib/api';
+import {
+  TRANSITION_STATES,
+  stateLabel,
+  type ComponentInfoWithState,
+  type ToolView,
+} from '@/lib/types/stack';
 
 interface ComponentsViewProps {
   stackName: string;
   components: ComponentInfoWithState[];
+  /** Tools offered by each running component, keyed by component id. */
+  tools: Record<string, ToolView[]>;
   onChanged: () => void;
+}
+
+/** Launch / stop actions for a component's tools, shared by the menu and the panel. */
+function useToolActions(stackName: string, componentId: string, onChanged: () => void) {
+  const [pending, setPending] = useState<string | null>(null);
+
+  const launch = async (tool: ToolView) => {
+    setPending(tool.id);
+    try {
+      await launchTool(stackName, componentId, tool.id);
+      showSuccessToast(`Launching ${tool.displayName} — it'll be ready to open shortly`);
+      onChanged();
+    } catch {
+      /* toast already shown */
+    } finally {
+      setPending(null);
+    }
+  };
+
+  const stop = async (tool: ToolView) => {
+    setPending(tool.id);
+    try {
+      await stopTool(stackName, componentId, tool.id);
+      showSuccessToast(`Stopped ${tool.displayName}`);
+      onChanged();
+    } catch {
+      /* toast already shown */
+    } finally {
+      setPending(null);
+    }
+  };
+
+  return { pending, launch, stop };
+}
+
+function ToolsMenu({
+  tools,
+  actions,
+}: {
+  tools: ToolView[];
+  actions: ReturnType<typeof useToolActions>;
+}) {
+  const anyStarting = tools.some((t) => t.state === 'Starting');
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="flex-shrink-0">
+          {anyStarting ? <Loader2 className="size-4 animate-spin" /> : <Wrench className="size-4" />}
+          Tools
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        {tools.map((tool, index) => {
+          const url = toolUrl(tool);
+          const busy = actions.pending === tool.id;
+          return (
+            <div key={tool.id}>
+              {index > 0 && <DropdownMenuSeparator />}
+              <DropdownMenuLabel className="flex flex-col gap-0.5">
+                <span>{tool.displayName}</span>
+                <span className="text-xs font-normal text-muted-foreground">{tool.description}</span>
+              </DropdownMenuLabel>
+              {tool.state === 'Running' && url ? (
+                <>
+                  <DropdownMenuItem onSelect={() => window.open(url, '_blank', 'noopener')}>
+                    <ExternalLink className="size-4" /> Open
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled={busy} onSelect={() => actions.stop(tool)}>
+                    <Square className="size-4" /> Stop
+                  </DropdownMenuItem>
+                </>
+              ) : tool.state === 'Starting' ? (
+                <DropdownMenuItem disabled>
+                  <Loader2 className="size-4 animate-spin" /> Starting…
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem disabled={busy} onSelect={() => actions.launch(tool)}>
+                  <Play className="size-4" /> {tool.state === 'Failed' ? 'Retry launch' : 'Launch'}
+                </DropdownMenuItem>
+              )}
+            </div>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function ToolsPanel({
+  tools,
+  actions,
+}: {
+  tools: ToolView[];
+  actions: ReturnType<typeof useToolActions>;
+}) {
+  return (
+    <div>
+      <h5 className="mb-3 text-sm font-semibold">Tools</h5>
+      <div className="grid gap-2">
+        {tools.map((tool) => {
+          const url = toolUrl(tool);
+          const busy = actions.pending === tool.id;
+          return (
+            <div
+              key={tool.id}
+              className="flex items-center justify-between gap-4 rounded bg-muted/50 px-3 py-2"
+            >
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="text-sm font-medium">{tool.displayName}</span>
+                <span className="text-xs text-muted-foreground">{tool.description}</span>
+                {tool.state === 'Running' && url && (
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="break-all font-mono text-sm text-primary hover:underline"
+                  >
+                    {url}
+                  </a>
+                )}
+                {tool.state === 'Failed' && (
+                  <span className="flex items-center gap-1 text-xs text-destructive">
+                    <AlertCircle className="size-3" /> {tool.message ?? 'Failed to start'}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-shrink-0 items-center gap-2">
+                {tool.state === 'Running' && url ? (
+                  <>
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="size-4" /> Open
+                      </a>
+                    </Button>
+                    <Button variant="ghost" size="sm" disabled={busy} onClick={() => actions.stop(tool)}>
+                      {busy ? <Loader2 className="size-4 animate-spin" /> : <Square className="size-4" />}
+                      Stop
+                    </Button>
+                  </>
+                ) : tool.state === 'Starting' ? (
+                  <Button variant="outline" size="sm" disabled>
+                    <Loader2 className="size-4 animate-spin" /> Starting…
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => actions.launch(tool)}>
+                    {busy ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+                    {tool.state === 'Failed' ? 'Retry' : 'Launch'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function CopyableValue({ label, value }: { label: string; value: string | number | boolean }) {
@@ -47,14 +229,17 @@ function CopyableValue({ label, value }: { label: string; value: string | number
 function ComponentRow({
   stackName,
   component,
+  tools,
   onChanged,
 }: {
   stackName: string;
   component: ComponentInfoWithState;
+  tools: ToolView[];
   onChanged: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const toolActions = useToolActions(stackName, component.id, onChanged);
 
   const state = component.state.state;
   const isRunning = state === 'Running';
@@ -113,6 +298,7 @@ function ComponentRow({
             <span className="min-w-[70px] text-sm font-medium">{stateLabel(state)}</span>
           </div>
         </button>
+        {tools.length > 0 && <ToolsMenu tools={tools} actions={toolActions} />}
         <Button
           variant="outline"
           size="sm"
@@ -160,6 +346,7 @@ function ComponentRow({
               </div>
             </div>
           )}
+          {tools.length > 0 && <ToolsPanel tools={tools} actions={toolActions} />}
           <div>
             <h5 className="mb-3 text-sm font-semibold">Metadata</h5>
             <div className="grid gap-2">
@@ -172,7 +359,12 @@ function ComponentRow({
   );
 }
 
-export default function ComponentsView({ stackName, components, onChanged }: ComponentsViewProps) {
+export default function ComponentsView({
+  stackName,
+  components,
+  tools,
+  onChanged,
+}: ComponentsViewProps) {
   if (components.length === 0) {
     return (
       <div className="rounded-lg border bg-card p-6">
@@ -188,6 +380,7 @@ export default function ComponentsView({ stackName, components, onChanged }: Com
           key={component.id}
           stackName={stackName}
           component={component}
+          tools={tools[component.id] ?? []}
           onChanged={onChanged}
         />
       ))}
