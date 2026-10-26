@@ -6,7 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusDot } from '@/lib/display';
 import { fetchStacks, deleteStack, startStack, stopStack } from '@/lib/api';
 import { showSuccessToast } from '@/lib/toast';
-import { TRANSITION_STATES, toStackSummary, type StackSummary } from '@/lib/types/stack';
+import {
+  TRANSITION_STATES,
+  isStartable,
+  toStackSummary,
+  type StackSummary,
+} from '@/lib/types/stack';
 import { Loader2, Square, Play, Trash2 } from 'lucide-react';
 import ComponentsView from '@/pages/stack-detail/ComponentsView';
 import LogsView from '@/pages/stack-detail/LogsView';
@@ -87,7 +92,9 @@ export default function StackDetail() {
               {stack
                 ? stack.failed
                   ? 'Compilation failed'
-                  : `${stack.stateCounts.Running ?? 0}/${stack.total} components running`
+                  : stack.overallState === 'NotStarted'
+                    ? 'Waiting to be started'
+                    : `${stack.stateCounts.Running ?? 0}/${stack.total} components running`
                 : loaded
                   ? 'Stack not found'
                   : 'Loading…'}
@@ -101,7 +108,7 @@ export default function StackDetail() {
                 {busy ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                 Remove
               </Button>
-            ) : stack.overallState === 'Stopped' ? (
+            ) : isStartable(stack.overallState) ? (
               <>
                 <Button variant="outline" onClick={handleStart} disabled={busy}>
                   {busy ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}

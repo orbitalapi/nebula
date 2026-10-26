@@ -23,7 +23,12 @@ import {
 import { showSuccessToast } from '@/lib/toast';
 import { getComponentIcon, StatusDot } from '@/lib/display';
 import { launchTool, startComponent, stopComponent, stopTool, toolUrl } from '@/lib/api';
-import { TRANSITION_STATES, type ComponentInfoWithState, type ToolView } from '@/lib/types/stack';
+import {
+  TRANSITION_STATES,
+  stateLabel,
+  type ComponentInfoWithState,
+  type ToolView,
+} from '@/lib/types/stack';
 
 interface ComponentsViewProps {
   stackName: string;
@@ -290,7 +295,7 @@ function ComponentRow({
           </div>
           <div className="flex flex-shrink-0 items-center gap-2">
             <StatusDot state={state} />
-            <span className="min-w-[70px] text-sm font-medium">{state}</span>
+            <span className="min-w-[70px] text-sm font-medium">{stateLabel(state)}</span>
           </div>
         </button>
         {tools.length > 0 && <ToolsMenu tools={tools} actions={toolActions} />}

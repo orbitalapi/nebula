@@ -14,7 +14,13 @@ import {
 import { StatusDot } from '@/lib/display';
 import { fetchStacks, deleteStack, startStack, stopStack } from '@/lib/api';
 import { showSuccessToast } from '@/lib/toast';
-import { TRANSITION_STATES, toStackSummary, type StackSummary } from '@/lib/types/stack';
+import {
+  TRANSITION_STATES,
+  isStartable,
+  stateLabel,
+  toStackSummary,
+  type StackSummary,
+} from '@/lib/types/stack';
 import { Boxes, RefreshCw, Square, Play, Loader2, Trash2 } from 'lucide-react';
 
 const POLL_INTERVAL_MS = 2000;
@@ -133,7 +139,7 @@ export default function StacksList() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <StatusDot state={stack.overallState} />
-                      <span className="text-sm">{stack.overallState}</span>
+                      <span className="text-sm">{stateLabel(stack.overallState)}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
@@ -162,7 +168,7 @@ export default function StacksList() {
                             </Button>
                           );
                         }
-                        if (stack.overallState === 'Stopped') {
+                        if (isStartable(stack.overallState)) {
                           return (
                             <>
                               <Button
