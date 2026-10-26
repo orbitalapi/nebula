@@ -11,20 +11,12 @@
 
     <artifactId>nebula-api</artifactId>
 
-    <properties>
-        <!-- The API should be published with 1.9, as it's consumed in projects that aren't yet upgraded to 2.x -->
-        <kotlin.version>1.9.24</kotlin.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
-        <!-- don't bundle Kotlin stdlib - it's provided by the things that conume this API.
-        Also, since this API is consumed by things with differing API versions (1.9.x vs 2.1.x),
-        bundling this causes problems
-        -->
+        <!-- don't bundle Kotlin stdlib - it's provided by the things that consume this API -->
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-stdlib</artifactId>
