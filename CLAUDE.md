@@ -48,7 +48,7 @@ npm start      # Start production server
 - **nebula-runtime**: Script execution engine and HTTP server
 
 ### Key Technologies
-- **Kotlin 2.2.0** on JVM 21
+- **Kotlin 2.2.21** on JVM 21
 - **TestContainers 1.19.0** for container orchestration
 - **Ktor 2.3.12** for HTTP servers and clients
 - **Kotest 5.9.1** for testing with descriptive specifications
