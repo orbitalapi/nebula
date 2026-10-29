@@ -50,7 +50,13 @@ data class ContainerInfo(
  * A single diagnostic produced when compiling a submitted stack script.
  * Carried on [StackStateEvent] so consumers (e.g. Orbital) can surface
  * why a submission was rejected, and reused by the admin API.
+ *
+ * Superseded by [com.orbitalhq.nebula.check.StackDiagnostic], which has a typed
+ * severity and the diagnostic's full range. This is part of the wire format Orbital
+ * consumes, so moving to it means changing [StackStateEvent], the admin API's
+ * models and Orbital together.
  */
+@Deprecated("Migrate to com.orbitalhq.nebula.check.StackDiagnostic, which has a typed Severity and the diagnostic's full SourceRange")
 data class CompilationError(
     val message: String,
     val line: Int?,

@@ -8,6 +8,7 @@ import com.orbitalhq.nebula.NebulaStackWithSource
 import com.orbitalhq.nebula.StackRunner
 import com.orbitalhq.nebula.StackStartMode
 import com.orbitalhq.nebula.runtime.NebulaCompilationException
+import com.orbitalhq.nebula.runtime.NebulaScriptChecker
 import com.orbitalhq.nebula.runtime.NebulaScriptExecutor
 import com.orbitalhq.nebula.runtime.server.NebulaServer
 import com.orbitalhq.nebula.utils.Names
@@ -46,6 +47,9 @@ class Nebula : Callable<Int> {
     @Option(names = ["--http"], description = ["Start HTTP server on specified port"], arity = "0..1")
     private var httpPort: Int? = null
 
+    @Option(names = ["--check"], description = ["Compile the script without running it, print any errors, and exit. Exits 1 if the script doesn't compile."])
+    private var checkOnly: Boolean = false
+
     @Option(names = ["-v", "--verbose"], description = ["Enable verbose output"])
     private var verbose: Boolean = false
 
@@ -78,6 +82,7 @@ class Nebula : Callable<Int> {
     private var currentStackRunner: StackRunner? = null
 
     override fun call(): Int {
+        if (checkOnly) return checkScript()
         spec.commandLine().out.println("Nebula emitting container coordinates for $connectivity connectivity")
         val networkOrError = resolveNetwork()
         if (networkOrError.isFailure) {
@@ -206,6 +211,24 @@ class Nebula : Callable<Int> {
                 line.contains("docker") || line.contains("containerd") || line.contains("kubepods")
             }
         }.getOrDefault(false)
+    }
+
+    /**
+     * Compiles the script without running it - no containers, no docker network.
+     */
+    private fun checkScript(): Int {
+        val file = scriptFile ?: throw ParameterException(spec.commandLine(), "--check needs a script file")
+        if (!file.isFile || !file.canRead()) {
+            throw ParameterException(spec.commandLine(), "${file.toPath()} not found or cannot be read")
+        }
+        val result = NebulaScriptChecker().check(file.readText())
+        result.diagnostics.forEach { diagnostic ->
+            val position = diagnostic.location?.let { "${it.start.line}:${it.start.column}:" }.orEmpty()
+            spec.commandLine().err.println("${file.name}:$position ${diagnostic.severity.name.lowercase()}: ${diagnostic.message}")
+        }
+        if (!result.compiles) return 1
+        spec.commandLine().out.println("${file.name} compiles")
+        return 0
     }
 
     private fun executeScript(nebulaConfig: NebulaConfig): Int {
