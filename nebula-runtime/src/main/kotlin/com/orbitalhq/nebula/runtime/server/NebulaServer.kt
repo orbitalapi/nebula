@@ -29,7 +29,9 @@ import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import io.rsocket.kotlin.ktor.server.RSocketSupport
 import kotlinx.coroutines.channels.consumeEach
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.reactive.asFlow
 import java.util.concurrent.ConcurrentHashMap
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Hooks
@@ -72,6 +74,23 @@ class NebulaServer(
             .filter { it.name !in compiledNames }
             .map { AdminStackView(it.name, null, it.source, it.compilationErrors) }
         return compiled + failed
+    }
+
+    /**
+     * Sends each of [source]'s items to this socket as JSON, until the returned job is cancelled.
+     *
+     * Collected in a coroutine on the socket's scope, so a full outgoing buffer suspends rather
+     * than blocks: the socket's coroutines share Netty's event-loop thread, and blocking it while
+     * the buffer drains (which needs that thread) stalls the socket for good.
+     */
+    private fun <T : Any> DefaultWebSocketServerSession.relayToSocket(
+        source: Flux<T>,
+        beforeSend: (T) -> Unit = {}
+    ): Job = launch {
+        source.asFlow().collect { item ->
+            beforeSend(item)
+            send(Frame.Text(objectMapper.writeValueAsString(item)))
+        }
     }
 
     fun start(wait: Boolean = true): NettyApplicationEngine {
@@ -234,21 +253,18 @@ class NebulaServer(
                     val id = call.parameters["id"] ?: return@webSocket close(
                         CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "Missing id")
                     )
-                    val disposable = try {
-                        stackExecutor.logs(id).subscribe { message ->
-                            runBlocking {
-                                send(Frame.Text(objectMapper.writeValueAsString(message)))
-                            }
-                        }
+                    val messages = try {
+                        stackExecutor.logs(id)
                     } catch (e: Exception) {
                         return@webSocket close(
                             CloseReason(CloseReason.Codes.CANNOT_ACCEPT, e.message ?: "Stack not found")
                         )
                     }
+                    val relay = relayToSocket(messages)
                     try {
                         incoming.consumeEach { /* ignore inbound frames */ }
                     } finally {
-                        disposable.dispose()
+                        relay.cancel()
                     }
                 }
                 // Live state-event stream for a stack.
@@ -256,25 +272,24 @@ class NebulaServer(
                     val id = call.parameters["id"] ?: return@webSocket close(
                         CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "Missing id")
                     )
-                    val disposable = try {
-                        stackExecutor.stackEvents(id).subscribe { event ->
-                            runBlocking {
-                                send(Frame.Text(objectMapper.writeValueAsString(event)))
-                            }
-                        }
+                    val events = try {
+                        stackExecutor.stackEvents(id)
                     } catch (e: Exception) {
                         return@webSocket close(
                             CloseReason(CloseReason.Codes.CANNOT_ACCEPT, e.message ?: "Stack not found")
                         )
                     }
+                    val relay = relayToSocket(events)
                     try {
                         incoming.consumeEach { /* ignore inbound frames */ }
                     } finally {
-                        disposable.dispose()
+                        relay.cancel()
                     }
                 }
                 webSocket("/stream/stacks") {
                     val call = call
+                    // Each submission carries every stack, so it replaces the previous one's relay
+                    var relay: Job? = null
                     incoming.consumeEach { frame ->
                         require(frame is Frame.Text) { "Only text frames supported" }
                         val payloadJson = frame.readText()
@@ -318,15 +333,10 @@ class NebulaServer(
                                     }
                                 )
                             }
-                            Flux.merge(eventStreams)
-                                .subscribe { event ->
-                                    logger.info { "Emitting stack status event for stack ${event.stackName}" }
-                                    runBlocking {
-                                        val stackStatusJson = objectMapper.writeValueAsString(event)
-                                        send(Frame.Text(stackStatusJson))
-                                    }
-
-                                }
+                            relay?.cancel()
+                            relay = relayToSocket(Flux.merge(eventStreams)) { event ->
+                                logger.info { "Emitting stack status event for stack ${event.stackName}" }
+                            }
                         } catch (e: Exception) {
                             logger.error(e) { "Failed to process stack submission" }
                         }
