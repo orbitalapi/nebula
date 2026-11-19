@@ -45,8 +45,11 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
+      # ./mvnw pins Maven (see .mvn/wrapper). The runner image's own Maven changes
+      # under us: ubuntu-26.04 ships 3.9.15, which re-verifies every cached artifact
+      # against Maven Central (~4,300 requests) and added 8-10 minutes to each build.
       - name: Deploy with Maven
-        run: mvn clean deploy -B -ntp -Dmaven.artifact.threads=16 --settings .mvn/settings.xml
+        run: ./mvnw clean deploy -B -ntp -Dmaven.artifact.threads=16 --settings .mvn/settings.xml
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
